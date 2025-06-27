@@ -173,7 +173,7 @@ def reask_vertexai_tools(
     response: Any,  # Replace with actual response type for Vertex AI
     exception: Exception,
 ):
-    from .client_vertexai import vertexai_function_response_parser
+    from .clients.client_vertexai import vertexai_function_response_parser
 
     kwargs = kwargs.copy()
     reask_msgs = [
@@ -189,7 +189,7 @@ def reask_vertexai_json(
     response: Any,  # Replace with actual response type for Vertex AI
     exception: Exception,
 ):
-    from .client_vertexai import vertexai_message_parser
+    from .clients.client_vertexai import vertexai_message_parser
 
     kwargs = kwargs.copy()
 
