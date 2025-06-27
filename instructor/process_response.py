@@ -705,7 +705,7 @@ def handle_vertexai_parallel_tools(
             "stream=True is not supported when using VERTEXAI_PARALLEL_TOOLS mode"
         )
 
-    from instructor.client_vertexai import vertexai_process_response
+    from instructor.clients.client_vertexai import vertexai_process_response
 
     # Extract concrete types before passing to vertexai_process_response
     model_types = list(get_types_array(response_model))
@@ -720,7 +720,7 @@ def handle_vertexai_parallel_tools(
 def handle_vertexai_tools(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
-    from instructor.client_vertexai import vertexai_process_response
+    from instructor.clients.client_vertexai import vertexai_process_response
 
     contents, tools, tool_config = vertexai_process_response(new_kwargs, response_model)
 
@@ -733,7 +733,7 @@ def handle_vertexai_tools(
 def handle_vertexai_json(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
-    from instructor.client_vertexai import vertexai_process_json_response
+    from instructor.clients.client_vertexai import vertexai_process_json_response
 
     contents, generation_config = vertexai_process_json_response(
         new_kwargs, response_model

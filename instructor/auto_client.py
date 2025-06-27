@@ -100,7 +100,7 @@ def from_provider(
     if provider == "openai":
         try:
             import openai
-            from instructor import from_openai
+            from instructor.clients import from_openai
 
             client = openai.AsyncOpenAI() if async_client else openai.OpenAI()
             return from_openai(
@@ -120,7 +120,7 @@ def from_provider(
     elif provider == "anthropic":
         try:
             import anthropic
-            from instructor import from_anthropic
+            from instructor.clients import from_anthropic
 
             client = (
                 anthropic.AsyncAnthropic() if async_client else anthropic.Anthropic()
@@ -143,7 +143,7 @@ def from_provider(
     elif provider == "google":
         try:
             import google.genai as genai  # type: ignore
-            from instructor import from_genai
+            from instructor.clients import from_genai
 
             client = genai.Client(
                 vertexai=False
@@ -165,7 +165,7 @@ def from_provider(
     elif provider == "mistral":
         try:
             from mistralai import Mistral  # type: ignore
-            from instructor import from_mistral
+            from instructor.clients import from_mistral
             import os
 
             if os.environ.get("MISTRAL_API_KEY"):
@@ -190,7 +190,7 @@ def from_provider(
     elif provider == "cohere":
         try:
             import cohere
-            from instructor import from_cohere
+            from instructor.clients import from_cohere
 
             client = cohere.AsyncClient() if async_client else cohere.Client()
             return from_cohere(client, **kwargs)
@@ -204,7 +204,7 @@ def from_provider(
     elif provider == "perplexity":
         try:
             import openai
-            from instructor import from_perplexity
+            from instructor.clients import from_perplexity
             import os
 
             if os.environ.get("PERPLEXITY_API_KEY"):
@@ -237,7 +237,7 @@ def from_provider(
     elif provider == "groq":
         try:
             import groq
-            from instructor import from_groq
+            from instructor.clients import from_groq
 
             client = groq.AsyncGroq() if async_client else groq.Groq()
             return from_groq(client, model=model_name, **kwargs)
@@ -251,7 +251,7 @@ def from_provider(
     elif provider == "writer":
         try:
             from writerai import AsyncWriter, Writer
-            from instructor import from_writer
+            from instructor.clients import from_writer
 
             client = AsyncWriter() if async_client else Writer()
             return from_writer(client, model=model_name, **kwargs)
@@ -265,7 +265,7 @@ def from_provider(
     elif provider == "bedrock":
         try:
             import boto3
-            from instructor import from_bedrock
+            from instructor.clients import from_bedrock
 
             client = boto3.client("bedrock-runtime")
             return from_bedrock(client, **kwargs)
@@ -279,7 +279,7 @@ def from_provider(
     elif provider == "cerebras":
         try:
             from cerebras.cloud.sdk import AsyncCerebras, Cerebras
-            from instructor import from_cerebras
+            from instructor.clients import from_cerebras
 
             client = AsyncCerebras() if async_client else Cerebras()
             return from_cerebras(client, model=model_name, **kwargs)
@@ -293,7 +293,7 @@ def from_provider(
     elif provider == "fireworks":
         try:
             from fireworks.client import AsyncFireworks, Fireworks
-            from instructor import from_fireworks
+            from instructor.clients import from_fireworks
 
             client = AsyncFireworks() if async_client else Fireworks()
             return from_fireworks(client, model=model_name, **kwargs)
@@ -307,7 +307,7 @@ def from_provider(
     elif provider == "vertexai":
         try:
             import vertexai.generative_models as gm
-            from instructor import from_vertexai
+            from instructor.clients import from_vertexai
 
             client = gm.GenerativeModel(model_name=model_name)
             return from_vertexai(client, use_async=async_client, **kwargs)
@@ -321,7 +321,7 @@ def from_provider(
     elif provider == "generative-ai":
         try:
             from google.generativeai import GenerativeModel
-            from instructor import from_gemini
+            from instructor.clients import from_gemini
 
             client = GenerativeModel(model_name=model_name)
             if async_client:
@@ -338,7 +338,7 @@ def from_provider(
     elif provider == "ollama":
         try:
             import openai
-            from instructor import from_openai
+            from instructor.clients import from_openai
 
             # Get base_url from kwargs or use default
             base_url = kwargs.pop("base_url", "http://localhost:11434/v1")
