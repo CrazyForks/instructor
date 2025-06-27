@@ -152,6 +152,8 @@ test-docs = [
     "pydub<1.0.0,>=0.25.1",
     "datasets<4.0.0,>=3.0.1",
     "writer-sdk<3.0.0,>=2.2.0",
+    "google-genai>=1.5.0",
+    "jsonref<2.0.0,>=1.1.0",
 ]
 litellm = ["litellm<2.0.0,>=1.35.31"]
 google-generativeai = [
