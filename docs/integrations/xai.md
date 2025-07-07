@@ -1,15 +1,15 @@
-# xAI
+---
+title: "Structured outputs with xAI, a complete guide with instructor"
+description: "Learn how to use Instructor with xAI's Grok models for type-safe, structured outputs. Complete guide with examples and best practices."
+---
 
-Instructor supports xAI's Grok models through the `xai-sdk` package. This integration allows you to leverage xAI's powerful language models for structured outputs using Pydantic models.
+# Structured outputs with xAI, a complete guide with instructor
 
-## Requirements
+xAI provides access to Grok models through the `xai-sdk` package, enabling structured outputs with Instructor. This guide covers everything you need to know about using xAI's Grok models with Instructor for type-safe, validated responses.
 
-- Python 3.10 or higher (required by `xai-sdk`)
-- xAI API key from [x.ai](https://x.ai)
+## Quick Start
 
-## Installation
-
-Install the xAI integration using pip:
+Install Instructor with xAI support:
 
 ```bash
 pip install "instructor[xai]"
@@ -21,70 +21,31 @@ Or using uv:
 uv pip install "instructor[xai]"
 ```
 
-Or install the dependencies directly:
+⚠️ **Important**: You must set your xAI API key before using the client. You can do this in two ways:
+
+1. Set the environment variable:
 
 ```bash
-pip install xai-sdk python-dotenv
-# or
-uv pip install xai-sdk python-dotenv
+export XAI_API_KEY='your-api-key-here'
 ```
 
-## Using `from_provider` (Recommended)
+2. The xAI SDK will use this environment variable automatically.
 
-The easiest way to use xAI with Instructor is through the `from_provider` method:
+## Simple User Example (Sync)
 
 ```python
 import instructor
 from pydantic import BaseModel
 
-# Auto-configure the xAI client
+# Auto-configure xAI client
 client = instructor.from_provider("xai/grok-3-mini")
-
-
-class User(BaseModel):
-    name: str
-    email: str
-
-
-user = client.chat.completions.create(
-    response_model=User,
-    messages=[
-        {
-            "role": "user",
-            "content": "Extract the user info: John Doe's email is john@example.com",
-        }
-    ],
-)
-
-print(user)
-# User(name='John Doe', email='john@example.com')
-```
-
-## Direct Client Usage
-
-If you need more control, you can use the xAI client directly:
-
-```python
-from xai_sdk.sync.client import Client
-from pydantic import BaseModel
-import instructor
-import os
-
-# Initialize the xAI client
-xai_client = Client(api_key=os.environ["XAI_API_KEY"])
-
-# Patch with Instructor
-client = instructor.from_xai(xai_client)
-
 
 class User(BaseModel):
     name: str
     age: int
 
-
-# Extract structured data
+# Create structured output
 user = client.chat.completions.create(
-    model="grok-3-mini",
     response_model=User,
     messages=[
         {"role": "user", "content": "Extract: Jason is 25 years old"},
@@ -92,27 +53,24 @@ user = client.chat.completions.create(
 )
 
 print(user)
-# User(name='Jason', age=25)
+#> User(name='Jason', age=25)
 ```
 
-## Async Support
-
-xAI supports async operations through `from_provider`:
+## Simple User Example (Async)
 
 ```python
 import instructor
-import asyncio
 from pydantic import BaseModel
+import asyncio
 
+# Auto-configure async xAI client
+client = instructor.from_provider("xai/grok-3-mini", async_client=True)
+
+class User(BaseModel):
+    name: str
+    age: int
 
 async def extract_user():
-    # Auto-configure async client
-    client = instructor.from_provider("xai/grok-3-mini", async_client=True)
-
-    class User(BaseModel):
-        name: str
-        age: int
-
     user = await client.chat.completions.create(
         response_model=User,
         messages=[
@@ -121,51 +79,69 @@ async def extract_user():
     )
     return user
 
-
 # Run async function
 user = asyncio.run(extract_user())
 print(user)
+#> User(name='Jason', age=25)
 ```
 
-Or using the async client directly:
+## Nested Example
 
 ```python
-from xai_sdk.aio.client import Client as AsyncClient
-import instructor
-import asyncio
 from pydantic import BaseModel
+from typing import List
+import instructor
 
+class Address(BaseModel):
+    street: str
+    city: str
+    country: str
 
-async def extract_user():
-    # Initialize async client
-    xai_client = AsyncClient(api_key=os.environ["XAI_API_KEY"])
-    client = instructor.from_xai(xai_client)
+class User(BaseModel):
+    name: str
+    age: int
+    addresses: List[Address]
 
-    class User(BaseModel):
-        name: str
-        age: int
+# Auto-configure xAI client
+client = instructor.from_provider("xai/grok-3-mini")
 
-    user = await client.chat.completions.create(
-        model="grok-3-mini",
-        response_model=User,
-        messages=[
-            {"role": "user", "content": "Extract: Jason is 25 years old"},
-        ],
-    )
-    return user
+# Create structured output with nested objects
+user = client.chat.completions.create(
+    response_model=User,
+    messages=[
+        {"role": "user", "content": """
+            Extract: Jason is 25 years old.
+            He lives at 123 Main St, New York, USA
+            and has a summer house at 456 Beach Rd, Miami, USA
+        """},
+    ],
+)
 
-
-# Run async function
-user = asyncio.run(extract_user())
 print(user)
+#> {
+#>     'name': 'Jason',
+#>     'age': 25,
+#>     'addresses': [
+#>         {
+#>             'street': '123 Main St',
+#>             'city': 'New York',
+#>             'country': 'USA'
+#>         },
+#>         {
+#>             'street': '456 Beach Rd',
+#>             'city': 'Miami',
+#>             'country': 'USA'
+#>         }
+#>     ]
+#> }
 ```
 
-## Supported Modes
+## Instructor Modes
 
 xAI supports the following modes:
 
-- `Mode.JSON` - Uses JSON mode for structured outputs (default)
-- `Mode.TOOLS` - Uses function calling for structured outputs
+1. `instructor.Mode.JSON` : Forces the model to return JSON output (default)
+2. `instructor.Mode.TOOLS` : Uses function calling for structured outputs
 
 ```python
 import instructor
@@ -174,45 +150,70 @@ from instructor import Mode
 # Using JSON mode (default)
 client = instructor.from_provider("xai/grok-3-mini", mode=Mode.JSON)
 
-# Using TOOLS mode  
+# Using TOOLS mode
 client = instructor.from_provider("xai/grok-3-mini", mode=Mode.TOOLS)
 ```
-
-## Limitations
-
-- **Streaming**: Streaming responses (`create_iterable` and `create_partial`) are not yet supported due to differences in xAI's streaming API
-- **Python Version**: Requires Python 3.10 or higher (xAI SDK requirement)
 
 ## Available Models
 
 xAI provides access to the following models:
 
-- `grok-3` - The most capable Grok model
-- `grok-3-mini` - A smaller, faster version of Grok-3
+- **grok-3** - The most capable Grok model for complex reasoning tasks
+- **grok-3-mini** - A smaller, faster version optimized for speed and cost
+
+## Limitations
+
+### Streaming Support
+
+⚠️ **Note**: Streaming responses (`create_iterable` and `create_partial`) are not yet supported due to differences in xAI's streaming API. See [issue #1663](https://github.com/567-labs/instructor/issues/1663) for updates.
+
+### Python Version
+
+⚠️ **Requires Python 3.10+**: The xAI SDK requires Python 3.10 or higher.
 
 ## Best Practices
 
-1. **API Key Management**: Store your xAI API key securely using environment variables:
+### 1. API Key Management
 
-   ```bash
-   export XAI_API_KEY="your-api-key-here"
-   ```
+Store your xAI API key securely using environment variables:
 
-2. **Model Selection**:
-   - Use `grok-3-mini` for faster responses and lower costs
-   - Use `grok-3` for more complex tasks requiring advanced reasoning
+```bash
+export XAI_API_KEY="your-api-key-here"
+```
 
-3. **Error Handling**: Always handle potential API errors:
+### 2. Model Selection
 
-   ```python
-   try:
-       user = client.chat.completions.create(
-           response_model=User,
-           messages=[{"role": "user", "content": "Extract user data"}],
-       )
-   except Exception as e:
-       print(f"Error: {e}")
-   ```
+- Use `grok-3-mini` for:
+  - Simple extraction tasks
+  - High-volume processing
+  - Cost-sensitive applications
+
+- Use `grok-3` for:
+  - Complex reasoning tasks
+  - Multi-step analysis
+  - Higher accuracy requirements
+
+### 3. Error Handling
+
+Always handle potential API errors gracefully:
+
+```python
+try:
+    user = client.chat.completions.create(
+        response_model=User,
+        messages=[{"role": "user", "content": "Extract user data"}],
+    )
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+## Common Use Cases
+
+- Data Extraction from unstructured text
+- Form parsing and validation
+- Content classification
+- Entity recognition
+- Structured data generation
 
 ## Related Resources
 
@@ -220,3 +221,7 @@ xAI provides access to the following models:
 - [Instructor Core Concepts](../concepts/index.md)
 - [Type Validation Guide](../concepts/validation.md)
 - [Advanced Usage Examples](../examples/index.md)
+
+## Updates and Compatibility
+
+Instructor maintains compatibility with the latest xAI SDK versions. Check the [changelog](https://github.com/jxnl/instructor/blob/main/CHANGELOG.md) for updates.
