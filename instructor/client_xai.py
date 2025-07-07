@@ -7,9 +7,21 @@ from pydantic import BaseModel
 import instructor
 from instructor.function_calls import _validate_model_from_json
 
-from xai_sdk.sync.client import Client as SyncClient
-from xai_sdk.aio.client import Client as AsyncClient
-from xai_sdk import chat as xchat
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from xai_sdk.sync.client import Client as SyncClient
+    from xai_sdk.aio.client import Client as AsyncClient
+    from xai_sdk import chat as xchat
+else:
+    try:
+        from xai_sdk.sync.client import Client as SyncClient
+        from xai_sdk.aio.client import Client as AsyncClient
+        from xai_sdk import chat as xchat
+    except ImportError:
+        SyncClient = None
+        AsyncClient = None
+        xchat = None
 
 
 def _convert_messages(messages: list[dict[str, Any]]):
