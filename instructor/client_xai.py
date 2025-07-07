@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, overload
 
-import json
 from pydantic import BaseModel
 
 import instructor
@@ -81,6 +80,11 @@ def from_xai(
     ):
         x_messages = _convert_messages(messages)
         model = call_kwargs.pop("model")
+        # Remove instructor-specific kwargs that xAI doesn't support
+        call_kwargs.pop("max_retries", None)
+        call_kwargs.pop("validation_context", None)
+        call_kwargs.pop("context", None)
+        call_kwargs.pop("hooks", None)
         chat = client.chat.create(model=model, messages=x_messages, **call_kwargs)
         if response_model is None:
             resp = await chat.sample()
@@ -108,6 +112,11 @@ def from_xai(
     ):
         x_messages = _convert_messages(messages)
         model = call_kwargs.pop("model")
+        # Remove instructor-specific kwargs that xAI doesn't support
+        call_kwargs.pop("max_retries", None)
+        call_kwargs.pop("validation_context", None)
+        call_kwargs.pop("context", None)
+        call_kwargs.pop("hooks", None)
         chat = client.chat.create(model=model, messages=x_messages, **call_kwargs)
         if response_model is None:
             resp = chat.sample()
