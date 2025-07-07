@@ -85,7 +85,9 @@ def from_xai(
         call_kwargs.pop("validation_context", None)
         call_kwargs.pop("context", None)
         call_kwargs.pop("hooks", None)
+
         chat = client.chat.create(model=model, messages=x_messages, **call_kwargs)
+
         if response_model is None:
             resp = await chat.sample()
             return resp
@@ -117,7 +119,9 @@ def from_xai(
         call_kwargs.pop("validation_context", None)
         call_kwargs.pop("context", None)
         call_kwargs.pop("hooks", None)
+
         chat = client.chat.create(model=model, messages=x_messages, **call_kwargs)
+
         if response_model is None:
             resp = chat.sample()
             return resp
