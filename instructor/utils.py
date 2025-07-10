@@ -99,6 +99,10 @@ def get_provider(base_url: str) -> Provider:
 _JSON_CODEBLOCK_PATTERN = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 _JSON_PATTERN = re.compile(r"({[\s\S]*})")
 
+# Regex patterns for XML extraction
+_XML_CODEBLOCK_PATTERN = re.compile(r"```(?:xml)?\s*(.*?)\s*```", re.DOTALL)
+_XML_PATTERN = re.compile(r"(<[\s\S]*>)")
+
 
 def extract_json_from_codeblock(content: str) -> str:
     """
@@ -131,6 +135,39 @@ def extract_json_from_codeblock(content: str) -> str:
                 json_content = content  # Return as is if no JSON-like content found
 
     return json_content
+
+
+def extract_xml_from_codeblock(content: str) -> str:
+    """
+    Extract XML from a string that may contain markdown code blocks or plain XML.
+
+    This function uses regex patterns to extract XML more efficiently.
+
+    Args:
+        content: The string that may contain XML
+
+    Returns:
+        The extracted XML string
+    """
+    # First try to find XML in code blocks
+    match = _XML_CODEBLOCK_PATTERN.search(content)
+    if match:
+        xml_content = match.group(1).strip()
+    else:
+        # Look for XML tags with the pattern < ... >
+        match = _XML_PATTERN.search(content)
+        if match:
+            xml_content = match.group(1)
+        else:
+            # Fallback: try to find XML start and end tags
+            first_bracket = content.find("<")
+            last_bracket = content.rfind(">")
+            if first_bracket != -1 and last_bracket != -1:
+                xml_content = content[first_bracket : last_bracket + 1]
+            else:
+                xml_content = content  # Return as is if no XML-like content found
+
+    return xml_content
 
 
 def extract_json_from_stream(

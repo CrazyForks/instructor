@@ -47,7 +47,7 @@ def from_anthropic(
 
     Args:
         client: An instance of Anthropic client (sync or async)
-        mode: The mode to use for the client (ANTHROPIC_JSON or ANTHROPIC_TOOLS)
+        mode: The mode to use for the client (ANTHROPIC_JSON, ANTHROPIC_XML, or ANTHROPIC_TOOLS)
         beta: Whether to use beta API features (uses client.beta.messages.create)
         **kwargs: Additional keyword arguments to pass to the Instructor constructor
 
@@ -60,6 +60,7 @@ def from_anthropic(
     """
     valid_modes = {
         instructor.Mode.ANTHROPIC_JSON,
+        instructor.Mode.ANTHROPIC_XML,
         instructor.Mode.ANTHROPIC_TOOLS,
         instructor.Mode.ANTHROPIC_REASONING_TOOLS,
     }

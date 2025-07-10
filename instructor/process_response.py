@@ -509,6 +509,40 @@ def handle_anthropic_json(
     return response_model, new_kwargs
 
 
+def handle_anthropic_xml(
+    response_model: type[T], new_kwargs: dict[str, Any]
+) -> tuple[type[T], dict[str, Any]]:
+    system_messages = extract_system_messages(new_kwargs.get("messages", []))
+
+    if system_messages:
+        new_kwargs["system"] = combine_system_messages(
+            new_kwargs.get("system"), system_messages
+        )
+
+    new_kwargs["messages"] = [
+        m for m in new_kwargs.get("messages", []) if m["role"] != "system"
+    ]
+
+    xml_schema_message = dedent(
+        f"""
+        As a genius expert, your task is to understand the content and provide
+        the parsed objects in XML that match the following xml_schema:\n
+
+        {response_model.xml_schema}
+
+        Make sure to return an instance of the XML, not the schema itself.
+        Use proper XML formatting with appropriate opening and closing tags.
+        """
+    )
+
+    new_kwargs["system"] = combine_system_messages(
+        new_kwargs.get("system"),
+        [{"type": "text", "text": xml_schema_message}],
+    )
+
+    return response_model, new_kwargs
+
+
 def handle_cohere_modes(new_kwargs: dict[str, Any]) -> tuple[None, dict[str, Any]]:
     messages = new_kwargs.pop("messages", [])
     chat_history = []
@@ -1099,7 +1133,7 @@ def handle_response_model(
                 mode,
                 autodetect_images=autodetect_images,
             )
-            if mode in {Mode.ANTHROPIC_JSON, Mode.ANTHROPIC_TOOLS}:
+            if mode in {Mode.ANTHROPIC_JSON, Mode.ANTHROPIC_XML, Mode.ANTHROPIC_TOOLS}:
                 # Handle OpenAI style or Anthropic style messages
                 new_kwargs["messages"] = [m for m in messages if m["role"] != "system"]
                 if "system" not in new_kwargs:
@@ -1137,6 +1171,7 @@ def handle_response_model(
         Mode.ANTHROPIC_TOOLS: handle_anthropic_tools,
         Mode.ANTHROPIC_REASONING_TOOLS: handle_anthropic_reasoning_tools,
         Mode.ANTHROPIC_JSON: handle_anthropic_json,
+        Mode.ANTHROPIC_XML: handle_anthropic_xml,
         Mode.COHERE_JSON_SCHEMA: handle_cohere_json_schema,
         Mode.COHERE_TOOLS: handle_cohere_tools,
         Mode.GEMINI_JSON: handle_gemini_json,

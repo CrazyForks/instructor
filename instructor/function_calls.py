@@ -19,6 +19,7 @@ from instructor.mode import Mode
 from instructor.utils import (
     classproperty,
     extract_json_from_codeblock,
+    extract_xml_from_codeblock,
     map_to_gemini_function_schema,
 )
 
@@ -157,6 +158,58 @@ class OpenAISchema(BaseModel):
         }
 
     @classproperty
+    def xml_schema(cls) -> str:
+        """
+        Generate XML schema representation for the model, tailored for consumption by an LLM.
+
+        Returns:
+            str: XML schema template string that describes the expected structure
+        """
+
+        def generate_xml_elements(schema: dict[str, Any], level: int = 0) -> str:
+            """Generate XML element structure from JSON schema."""
+            if schema.get("type") == "object":
+                properties = schema.get("properties", {})
+                required = schema.get("required", [])
+                elements = []
+
+                for prop_name, prop_schema in properties.items():
+                    is_required = prop_name in required
+                    if prop_schema.get("type") == "array":
+                        item_schema = prop_schema.get("items", {})
+                        if item_schema.get("type") == "object":
+                            elements.append(f"  {'  ' * level}<{prop_name}>")
+                            elements.append(
+                                generate_xml_elements(item_schema, level + 1)
+                            )
+                            elements.append(f"  {'  ' * level}</{prop_name}>")
+                        else:
+                            elements.append(
+                                f"  {'  ' * level}<{prop_name}>[{item_schema.get('type', 'value')}]</{prop_name}>"
+                            )
+                    elif prop_schema.get("type") == "object":
+                        elements.append(f"  {'  ' * level}<{prop_name}>")
+                        elements.append(generate_xml_elements(prop_schema, level + 1))
+                        elements.append(f"  {'  ' * level}</{prop_name}>")
+                    else:
+                        prop_type = prop_schema.get("type", "string")
+                        elements.append(
+                            f"  {'  ' * level}<{prop_name}>[{prop_type}]</{prop_name}>"
+                        )
+
+                return "\n".join(elements)
+            return ""
+
+        json_schema = cls.model_json_schema()
+        class_name = cls.__name__
+
+        xml_template = f"""<{class_name}>
+{generate_xml_elements(json_schema)}
+</{class_name}>"""
+
+        return xml_template
+
+    @classproperty
     def gemini_schema(cls) -> Any:
         import google.generativeai.types as genai_types
 
@@ -191,14 +244,14 @@ class OpenAISchema(BaseModel):
             cls (OpenAISchema): An instance of the class
         """
 
-        if mode == Mode.ANTHROPIC_TOOLS:
-            return cls.parse_anthropic_tools(completion, validation_context, strict)
-
-        if mode == Mode.ANTHROPIC_TOOLS or mode == Mode.ANTHROPIC_REASONING_TOOLS:
+        if mode in {Mode.ANTHROPIC_TOOLS, Mode.ANTHROPIC_REASONING_TOOLS}:
             return cls.parse_anthropic_tools(completion, validation_context, strict)
 
         if mode == Mode.ANTHROPIC_JSON:
             return cls.parse_anthropic_json(completion, validation_context, strict)
+
+        if mode == Mode.ANTHROPIC_XML:
+            return cls.parse_anthropic_xml(completion, validation_context, strict)
 
         if mode == Mode.BEDROCK_JSON:
             return cls.parse_bedrock_json(completion, validation_context, strict)
@@ -410,6 +463,60 @@ class OpenAISchema(BaseModel):
             model = cls.model_validate(parsed, context=validation_context, strict=False)
 
         return model
+
+    @classmethod
+    def parse_anthropic_xml(
+        cls: type[BaseModel],
+        completion: ChatCompletion,
+        validation_context: Optional[dict[str, Any]] = None,
+        strict: Optional[bool] = None,
+    ) -> BaseModel:
+        from anthropic.types import Message
+
+        last_block = None
+
+        if hasattr(completion, "choices"):
+            completion = completion.choices[0]
+            if completion.finish_reason == "length":
+                raise IncompleteOutputException(last_completion=completion)
+            text = completion.message.content
+        else:
+            assert isinstance(completion, Message)
+            if completion.stop_reason == "max_tokens":
+                raise IncompleteOutputException(last_completion=completion)
+            # Find the last text block in the completion
+            text_blocks = [c for c in completion.content if c.type == "text"]
+            last_block = text_blocks[-1]
+            # strip (\u0000-\u001F) control characters
+            text = re.sub(r"[\u0000-\u001F]", "", last_block.text)
+
+        xml_text = extract_xml_from_codeblock(text)
+
+        try:
+            import xmltodict
+        except ImportError:
+            raise ImportError(
+                "xmltodict is required for XML parsing. Install it with: pip install xmltodict"
+            ) from None
+
+        try:
+            parsed_dict = xmltodict.parse(xml_text)
+            # Extract the root element content (skip the root tag)
+            # Usually xmltodict wraps everything in the root tag name
+            root_key = next(iter(parsed_dict.keys()))
+            parsed_content = parsed_dict[root_key]
+
+            model = cls.model_validate(
+                parsed_content, context=validation_context, strict=True if strict else False
+            )
+
+            return model
+
+        except Exception as e:
+            logger.error(f"Error parsing XML: {e}")
+            raise ValueError(
+                f"Failed to parse XML content: {e}. XML content: {xml_text}"
+            ) from None
 
     @classmethod
     def parse_bedrock_json(
