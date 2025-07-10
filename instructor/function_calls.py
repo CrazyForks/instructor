@@ -210,6 +210,86 @@ class OpenAISchema(BaseModel):
         return xml_template
 
     @classproperty
+    def xsd_schema(cls) -> str:
+        """
+        Generate XSD schema representation for the model.
+        
+        Returns:
+            str: XSD schema string that can be used with xmlschema.XMLSchema()
+        """
+        
+        def json_type_to_xsd_type(json_type: str) -> str:
+            """Map JSON Schema types to XSD types."""
+            type_mapping = {
+                "string": "xs:string",
+                "integer": "xs:int",
+                "number": "xs:decimal",
+                "boolean": "xs:boolean",
+            }
+            return type_mapping.get(json_type, "xs:string")
+        
+        def generate_xsd_elements(schema: dict[str, Any], level: int = 0) -> str:
+            """Generate XSD element definitions from JSON schema."""
+            if schema.get("type") == "object":
+                properties = schema.get("properties", {})
+                required = schema.get("required", [])
+                elements = []
+                
+                for prop_name, prop_schema in properties.items():
+                    is_required = prop_name in required
+                    min_occurs = "1" if is_required else "0"
+                    
+                    if prop_schema.get("type") == "array":
+                        # Handle arrays
+                        item_schema = prop_schema.get("items", {})
+                        if item_schema.get("type") == "object":
+                            # Array of objects
+                            elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" minOccurs="{min_occurs}" maxOccurs="unbounded">')
+                            elements.append(f'{"  " * (level + 2)}<xs:complexType>')
+                            elements.append(f'{"  " * (level + 3)}<xs:sequence>')
+                            elements.append(generate_xsd_elements(item_schema, level + 3))
+                            elements.append(f'{"  " * (level + 3)}</xs:sequence>')
+                            elements.append(f'{"  " * (level + 2)}</xs:complexType>')
+                            elements.append(f'{"  " * (level + 1)}</xs:element>')
+                        else:
+                            # Array of primitives
+                            xsd_type = json_type_to_xsd_type(item_schema.get("type", "string"))
+                            elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" type="{xsd_type}" minOccurs="{min_occurs}" maxOccurs="unbounded" />')
+                    
+                    elif prop_schema.get("type") == "object":
+                        # Nested object
+                        elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" minOccurs="{min_occurs}" maxOccurs="1">')
+                        elements.append(f'{"  " * (level + 2)}<xs:complexType>')
+                        elements.append(f'{"  " * (level + 3)}<xs:sequence>')
+                        elements.append(generate_xsd_elements(prop_schema, level + 3))
+                        elements.append(f'{"  " * (level + 3)}</xs:sequence>')
+                        elements.append(f'{"  " * (level + 2)}</xs:complexType>')
+                        elements.append(f'{"  " * (level + 1)}</xs:element>')
+                    
+                    else:
+                        # Primitive type
+                        xsd_type = json_type_to_xsd_type(prop_schema.get("type", "string"))
+                        elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" type="{xsd_type}" minOccurs="{min_occurs}" maxOccurs="1" />')
+                
+                return "\n".join(elements)
+            return ""
+        
+        json_schema = cls.model_json_schema()
+        class_name = cls.__name__
+        
+        xsd_template = f'''<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="{class_name}">
+    <xs:complexType>
+      <xs:sequence>
+{generate_xsd_elements(json_schema)}
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>'''
+        
+        return xsd_template
+
+    @classproperty
     def gemini_schema(cls) -> Any:
         import google.generativeai.types as genai_types
 
@@ -493,21 +573,20 @@ class OpenAISchema(BaseModel):
         xml_text = extract_xml_from_codeblock(text)
 
         try:
-            import xmltodict
+            import xmlschema
         except ImportError:
             raise ImportError(
-                "xmltodict is required for XML parsing. Install it with: pip install xmltodict"
+                "xmlschema is required for XML parsing. Install it with: pip install xmlschema"
             ) from None
 
         try:
-            parsed_dict = xmltodict.parse(xml_text)
-            # Extract the root element content (skip the root tag)
-            # Usually xmltodict wraps everything in the root tag name
-            root_key = next(iter(parsed_dict.keys()))
-            parsed_content = parsed_dict[root_key]
+            # Generate XSD schema for this model & validate against it
+            xsd_schema_str = cls.xsd_schema
+            schema = xmlschema.XMLSchema(xsd_schema_str)
+            parsed_dict = schema.to_dict(xml_text)
 
             model = cls.model_validate(
-                parsed_content, context=validation_context, strict=True if strict else False
+                parsed_dict, context=validation_context, strict=True if strict else False
             )
 
             return model
