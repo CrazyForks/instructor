@@ -228,8 +228,18 @@ class OpenAISchema(BaseModel):
             }
             return type_mapping.get(json_type, "xs:string")
         
-        def generate_xsd_elements(schema: dict[str, Any], level: int = 0) -> str:
+        def resolve_ref(ref_path: str, full_schema: dict[str, Any]) -> dict[str, Any]:
+            """Resolve $ref references in JSON schema."""
+            if ref_path.startswith("#/$defs/"):
+                def_name = ref_path.replace("#/$defs/", "")
+                return full_schema.get("$defs", {}).get(def_name, {})
+            return {}
+        
+        def generate_xsd_elements(schema: dict[str, Any], level: int = 0, full_schema: dict[str, Any] = None) -> str:
             """Generate XSD element definitions from JSON schema."""
+            if full_schema is None:
+                full_schema = schema
+                
             if schema.get("type") == "object":
                 properties = schema.get("properties", {})
                 required = schema.get("required", [])
@@ -240,19 +250,36 @@ class OpenAISchema(BaseModel):
                     min_occurs = "1" if is_required else "0"
                     
                     if prop_schema.get("type") == "array":
-                        # Handle arrays
+                        # Handle arrays - arrays in XML are represented as repeated elements
                         item_schema = prop_schema.get("items", {})
-                        if item_schema.get("type") == "object":
-                            # Array of objects
+                        
+                        # Handle $ref in array items
+                        if "$ref" in item_schema:
+                            resolved_schema = resolve_ref(item_schema["$ref"], full_schema)
+                            if resolved_schema.get("type") == "object":
+                                # Array of objects - each item is a separate element 
+                                elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" minOccurs="{min_occurs}" maxOccurs="unbounded">')
+                                elements.append(f'{"  " * (level + 2)}<xs:complexType>')
+                                elements.append(f'{"  " * (level + 3)}<xs:sequence>')
+                                elements.append(generate_xsd_elements(resolved_schema, level + 3, full_schema))
+                                elements.append(f'{"  " * (level + 3)}</xs:sequence>')
+                                elements.append(f'{"  " * (level + 2)}</xs:complexType>')
+                                elements.append(f'{"  " * (level + 1)}</xs:element>')
+                            else:
+                                # Array of primitives via ref
+                                xsd_type = json_type_to_xsd_type(resolved_schema.get("type", "string"))
+                                elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" type="{xsd_type}" minOccurs="{min_occurs}" maxOccurs="unbounded" />')
+                        elif item_schema.get("type") == "object":
+                            # Array of objects - each item is a separate element 
                             elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" minOccurs="{min_occurs}" maxOccurs="unbounded">')
                             elements.append(f'{"  " * (level + 2)}<xs:complexType>')
                             elements.append(f'{"  " * (level + 3)}<xs:sequence>')
-                            elements.append(generate_xsd_elements(item_schema, level + 3))
+                            elements.append(generate_xsd_elements(item_schema, level + 3, full_schema))
                             elements.append(f'{"  " * (level + 3)}</xs:sequence>')
                             elements.append(f'{"  " * (level + 2)}</xs:complexType>')
                             elements.append(f'{"  " * (level + 1)}</xs:element>')
                         else:
-                            # Array of primitives
+                            # Array of primitives - repeated elements with same name
                             xsd_type = json_type_to_xsd_type(item_schema.get("type", "string"))
                             elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" type="{xsd_type}" minOccurs="{min_occurs}" maxOccurs="unbounded" />')
                     
@@ -261,7 +288,7 @@ class OpenAISchema(BaseModel):
                         elements.append(f'{"  " * (level + 1)}<xs:element name="{prop_name}" minOccurs="{min_occurs}" maxOccurs="1">')
                         elements.append(f'{"  " * (level + 2)}<xs:complexType>')
                         elements.append(f'{"  " * (level + 3)}<xs:sequence>')
-                        elements.append(generate_xsd_elements(prop_schema, level + 3))
+                        elements.append(generate_xsd_elements(prop_schema, level + 3, full_schema))
                         elements.append(f'{"  " * (level + 3)}</xs:sequence>')
                         elements.append(f'{"  " * (level + 2)}</xs:complexType>')
                         elements.append(f'{"  " * (level + 1)}</xs:element>')
@@ -583,8 +610,7 @@ class OpenAISchema(BaseModel):
             # Generate XSD schema for this model & validate against it
             xsd_schema_str = cls.xsd_schema
             schema = xmlschema.XMLSchema(xsd_schema_str)
-            parsed_dict = schema.to_dict(xml_text)
-
+            parsed_dict = schema.to_dict(xml_text)            
             model = cls.model_validate(
                 parsed_dict, context=validation_context, strict=True if strict else False
             )
