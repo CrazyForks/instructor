@@ -92,7 +92,7 @@ def test_list_str_xml():
         model="claude-3-haiku-20240307",
         max_tokens=1024,
         max_retries=0,
-        system="Make sure to follow the instructions carefully and return a response object that matches the xml schema requested. Family members here is just asking for a list of names",
+        system="Make sure to follow the instructions carefully and return a response object that matches the xml schema requested. Family members here are just asking for a list of names",
         messages=[
             {
                 "role": "user",
@@ -120,7 +120,7 @@ def test_literal_xml():
         messages=[
             {
                 "role": "user",
-                "content": "Create a admin user for a model with a name and role.",
+                "content": "Create an admin user for a model with a name and role.",
             }
         ],
         response_model=User,
