@@ -605,11 +605,11 @@ class OpenAISchema(BaseModel):
             assert isinstance(completion, Message)
             if completion.stop_reason == "max_tokens":
                 raise IncompleteOutputException(last_completion=completion)
-            # Find the last text block in the completion
+            # Find the last text block in the completion (see comment in parse_anthropic_json)
             text_blocks = [c for c in completion.content if c.type == "text"]
-            last_block = text_blocks[-1]
+            last_block = text_blocks[-1] if text_blocks else None
             # strip (\u0000-\u001F) control characters
-            text = re.sub(r"[\u0000-\u001F]", "", last_block.text)
+            text = re.sub(r"[\u0000-\u001F]", "", last_block.text) if last_block else ""
 
         xml_text = extract_xml_from_codeblock(text)
 
