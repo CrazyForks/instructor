@@ -1,13 +1,11 @@
 """V2 Instructor Client using Adapter Pattern"""
 
 from typing import Any, Callable, Optional, TypeVar
-from cohere import Usage
 from pydantic import BaseModel, ValidationError
-import sys
-import os
 import logging
 from json import JSONDecodeError
 from jinja2 import Template
+import copy
 
 from instructor.mode import Mode
 from instructor.hooks import Hooks
@@ -54,15 +52,6 @@ class InstructorClient:
             return Retrying(stop=stop_condition)
         return max_retries
 
-    def _initialize_usage(self) -> Usage:
-        """Initialize usage tracking"""
-        return Usage(
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-            thinking_tokens=0,
-        )
-
     def format_messages_with_context(
         self, messages: list[dict[str, Any]], context: dict[str, Any] | None
     ) -> list[dict[str, Any]]:
@@ -70,11 +59,10 @@ class InstructorClient:
         # and renders it with the context
         if context is None:
             return messages
-        
+
         # Create a deep copy to avoid modifying the original messages
-        import copy
         rendered_messages = copy.deepcopy(messages)
-        
+
         for message in rendered_messages:
             if "content" in message and isinstance(message["content"], str):
                 message["content"] = Template(message["content"]).render(**context)

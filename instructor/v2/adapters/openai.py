@@ -39,7 +39,7 @@ class OpenAIAdapter(ProviderAdapter):
         if response_model is None:
             return {**kwargs, "messages": messages}
 
-        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT:
+        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT or mode == Mode.PARALLEL_TOOLS:
             schema = self.transform_schema(response_model.model_json_schema())
             return {
                 **kwargs,
@@ -52,9 +52,26 @@ class OpenAIAdapter(ProviderAdapter):
             }
 
         elif mode == Mode.JSON or mode == Mode.JSON_SCHEMA:
+            # OpenAI requires "json" to appear in messages when using json_object response format
+            # Add a system message if "json" is not found in any message
+            messages_copy = messages.copy()
+            has_json_keyword = any(
+                "json" in str(msg.get("content", "")).lower() 
+                for msg in messages_copy
+            )
+            
+            if not has_json_keyword:
+                # Prepend a system message asking for JSON output
+                messages_copy = [
+                    {
+                        "role": "system", 
+                        "content": "Please respond with valid JSON."
+                    }
+                ] + messages_copy
+            
             return {
                 **kwargs,
-                "messages": messages,
+                "messages": messages_copy,
                 "response_format": {"type": "json_object"},
             }
 
@@ -112,7 +129,7 @@ class OpenAIAdapter(ProviderAdapter):
         if response_model is None:
             return response
 
-        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT:
+        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT or mode == Mode.PARALLEL_TOOLS:
             return self._parse_tools(response_model, response, context, strict)
         elif mode == Mode.JSON or mode == Mode.JSON_SCHEMA:
             return self._parse_json(response_model, response, context, strict)
@@ -130,7 +147,7 @@ class OpenAIAdapter(ProviderAdapter):
         """Parse OpenAI completion response"""
         mode = getattr(completion, "_mode", Mode.TOOLS)
 
-        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT:
+        if mode == Mode.TOOLS or mode == Mode.TOOLS_STRICT or mode == Mode.PARALLEL_TOOLS:
             return self._parse_tools(
                 response_model, completion, validation_context, strict
             )
