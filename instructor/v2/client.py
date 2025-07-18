@@ -68,9 +68,17 @@ class InstructorClient:
     ) -> list[dict[str, Any]]:
         # treats content of every message as a jinja2 template
         # and renders it with the context
-        for message in messages:
-            message["content"] = Template(message["content"]).render(context)
-        return messages
+        if context is None:
+            return messages
+        
+        # Create a deep copy to avoid modifying the original messages
+        import copy
+        rendered_messages = copy.deepcopy(messages)
+        
+        for message in rendered_messages:
+            if "content" in message and isinstance(message["content"], str):
+                message["content"] = Template(message["content"]).render(**context)
+        return rendered_messages
 
     def create(
         self,
