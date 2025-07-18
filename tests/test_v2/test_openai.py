@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 import pytest
-from typing import Literal, Union
-from collections.abc import Iterable
+from typing import Literal
 from instructor.v2.auto_client import from_provider
 from instructor.mode import Mode
 
