@@ -6,7 +6,12 @@ import logging
 from json import JSONDecodeError
 from typing import Any, Callable, TypeVar
 
-from .exceptions import InstructorRetryException, AsyncValidationError
+from .exceptions import (
+    InstructorRetryException,
+    AsyncValidationError,
+    ValidationError,
+    InstructorJSONDecodeError,
+)
 from .hooks import Hooks
 from ..mode import Mode
 from ..processing.response import (
@@ -175,6 +180,10 @@ def retry_sync(
     # Pre-extract stream flag to avoid repeated lookup
     stream = kwargs.get("stream", False)
 
+    # Track all exceptions that occur during retry attempts
+    all_exceptions: list[Exception] = []
+    all_failed_responses: list[Any] = []
+
     try:
         response = None
         for attempt in max_retries:
@@ -196,9 +205,23 @@ def retry_sync(
                         mode=mode,
                         stream=stream,
                     )
-                except (ValidationError, JSONDecodeError) as e:
+                except (
+                    ValidationError,
+                    InstructorJSONDecodeError,
+                    JSONDecodeError,
+                ) as e:
                     logger.debug(f"Parse error: {e}")
                     hooks.emit_parse_error(e)
+
+                    # Track this exception and extract the failed response from the exception
+                    all_exceptions.append(e)
+
+                    # Extract failed response from the enhanced exception if available
+                    if hasattr(e, "failed_response") and e.failed_response is not None:
+                        all_failed_responses.append(e.failed_response)
+                    else:
+                        # Fallback to the current response variable
+                        all_failed_responses.append(response)
 
                     # Check if this is the last attempt
                     if isinstance(max_retries, Retrying) and hasattr(
@@ -231,6 +254,10 @@ def retry_sync(
                     logger.debug(f"Completion error: {e}")
                     hooks.emit_completion_error(e)
 
+                    # Track this exception and the failed response (if any)
+                    all_exceptions.append(e)
+                    all_failed_responses.append(response)
+
                     # Check if this is the last attempt for completion errors
                     if isinstance(max_retries, Retrying) and hasattr(
                         max_retries, "stop"
@@ -261,6 +288,8 @@ def retry_sync(
             ),  # Use the optimized function instead of nested lookups
             create_kwargs=kwargs,
             total_usage=total_usage,
+            all_exceptions=all_exceptions,
+            all_failed_responses=all_failed_responses,
         ) from e
 
 
@@ -304,6 +333,10 @@ async def retry_async(
     # Pre-extract stream flag to avoid repeated lookup
     stream = kwargs.get("stream", False)
 
+    # Track all exceptions that occur during retry attempts
+    all_exceptions: list[Exception] = []
+    all_failed_responses: list[Any] = []
+
     try:
         response = None
         async for attempt in max_retries:
@@ -327,11 +360,22 @@ async def retry_async(
                     )
                 except (
                     ValidationError,
+                    InstructorJSONDecodeError,
                     JSONDecodeError,
                     AsyncValidationError,
                 ) as e:
                     logger.debug(f"Parse error: {e}")
                     hooks.emit_parse_error(e)
+
+                    # Track this exception and extract the failed response from the exception
+                    all_exceptions.append(e)
+
+                    # Extract failed response from the enhanced exception if available
+                    if hasattr(e, "failed_response") and e.failed_response is not None:
+                        all_failed_responses.append(e.failed_response)
+                    else:
+                        # Fallback to the current response variable
+                        all_failed_responses.append(response)
 
                     # Check if this is the last attempt
                     if isinstance(max_retries, AsyncRetrying) and hasattr(
@@ -364,6 +408,9 @@ async def retry_async(
                     logger.debug(f"Completion error: {e}")
                     hooks.emit_completion_error(e)
 
+                    # Track this exception in our list
+                    all_exceptions.append(e)
+
                     # Check if this is the last attempt for completion errors
                     if isinstance(max_retries, AsyncRetrying) and hasattr(
                         max_retries, "stop"
@@ -394,4 +441,6 @@ async def retry_async(
             ),  # Use the optimized function instead of nested lookups
             create_kwargs=kwargs,
             total_usage=total_usage,
+            all_exceptions=all_exceptions,
+            all_failed_responses=all_failed_responses,
         ) from e

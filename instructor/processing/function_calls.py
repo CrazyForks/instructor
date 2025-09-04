@@ -92,14 +92,23 @@ def _validate_model_from_json(
             return cls.model_validate(parsed, context=validation_context, strict=False)
     except json.JSONDecodeError as e:
         logger.debug(f"JSON decode error: {e}")
-        raise ValueError(f"Failed to parse JSON: {e}") from e
+        from ..core.exceptions import InstructorJSONDecodeError
+
+        raise InstructorJSONDecodeError(
+            f"Failed to parse JSON: {e}",
+            failed_response=completion if "completion" in locals() else None,
+            raw_json_content=json_str,
+            original_error=e,
+        ) from e
     except Exception as e:
         logger.debug(f"Model validation error: {e}")
         # Re-raise with more context
         from ..core.exceptions import ValidationError as InstructorValidationError
 
         raise InstructorValidationError(
-            f"Failed to validate model {cls.__name__}: {str(e)}"
+            f"Failed to validate model {cls.__name__}: {str(e)}",
+            failed_response=completion if "completion" in locals() else None,
+            raw_content=json_str if "json_str" in locals() else None,
         ) from e
 
 
@@ -442,7 +451,13 @@ class OpenAISchema(BaseModel):
         try:
             extra_text = extract_json_from_codeblock(text)  # type: ignore
         except UnboundLocalError:
-            raise ValueError("Unable to extract JSON from completion text") from None
+            from ..core.exceptions import ValidationError as InstructorValidationError
+
+            raise InstructorValidationError(
+                "Unable to extract JSON from completion text",
+                failed_response=completion,
+                raw_content=text if "text" in locals() else None,
+            ) from None
 
         if strict:
             return cls.model_validate_json(

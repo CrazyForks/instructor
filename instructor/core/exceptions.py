@@ -34,6 +34,8 @@ class InstructorRetryException(InstructorError):
         n_attempts: int,
         total_usage: int,
         create_kwargs: dict[str, Any] | None = None,
+        all_exceptions: list[Exception] | None = None,
+        all_failed_responses: list[Any] | None = None,
         **kwargs: dict[str, Any],
     ):
         self.last_completion = last_completion
@@ -41,13 +43,43 @@ class InstructorRetryException(InstructorError):
         self.n_attempts = n_attempts
         self.total_usage = total_usage
         self.create_kwargs = create_kwargs
+        self.all_exceptions = all_exceptions or []
+        self.all_failed_responses = all_failed_responses or []
         super().__init__(*args, **kwargs)
 
 
 class ValidationError(InstructorError):
     """Exception raised when response validation fails."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        *args: Any,
+        failed_response: Any = None,
+        raw_content: str | None = None,
+        **kwargs: Any,
+    ):
+        self.failed_response = failed_response  # Original LLM response object
+        self.raw_content = raw_content  # The actual content that failed to parse
+        super().__init__(message, *args, **kwargs)
+
+
+class InstructorJSONDecodeError(InstructorError):
+    """JSON decode error with response context."""
+
+    def __init__(
+        self,
+        message: str,
+        *args: Any,
+        failed_response: Any = None,
+        raw_json_content: str | None = None,
+        original_error: Exception | None = None,
+        **kwargs: Any,
+    ):
+        self.failed_response = failed_response  # Original LLM response object
+        self.raw_json_content = raw_json_content  # The malformed JSON string
+        self.original_error = original_error  # Original JSONDecodeError
+        super().__init__(message, *args, **kwargs)
 
 
 class ProviderError(InstructorError):
