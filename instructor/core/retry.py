@@ -236,6 +236,7 @@ def retry_sync(
                         mode=mode,
                         response=response,
                         exception=e,
+                        failed_attempts=failed_attempts,
                     )
                     raise e
                 except Exception as e:
@@ -391,6 +392,7 @@ async def retry_async(
                         mode=mode,
                         response=response,
                         exception=e,
+                        failed_attempts=failed_attempts,
                     )
                     raise e
                 except Exception as e:

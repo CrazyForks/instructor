@@ -1,12 +1,60 @@
 from __future__ import annotations
 
+from textwrap import dedent
 from typing import Any, NamedTuple
+from jinja2 import Template
 
 
 class InstructorError(Exception):
     """Base exception for all Instructor-specific errors."""
 
-    pass
+    failed_attempts: list[FailedAttempt] | None = None
+
+    @classmethod
+    def from_exception(
+        cls, exception: Exception, failed_attempts: list[FailedAttempt] | None = None
+    ):
+        return cls(str(exception), failed_attempts=failed_attempts)
+
+    def __init__(
+        self,
+        *args: list[Any],
+        failed_attempts: list[FailedAttempt] | None = None,
+        **kwargs: dict[str, Any],
+    ):
+        self.failed_attempts = failed_attempts
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+        # If no failed attempts, use the standard exception string representation
+        if not self.failed_attempts:
+            return super().__str__()
+
+        template = Template(
+            dedent(
+                """
+                <failed_attempts>
+                {% for attempt in failed_attempts %}
+                <generation number="{{ attempt.attempt_number }}">
+                <exception>
+                    {{ attempt.exception }}
+                </exception>
+                <completion>
+                    {{ attempt.completion }}
+                </completion>
+                </generation>
+                {% endfor %}
+                </failed_attempts>
+
+                <last_exception>
+                    {{ last_exception }}
+                </last_exception>
+                """
+            ).strip()
+        )
+        return template.render(
+            last_exception=super().__str__(), failed_attempts=self.failed_attempts
+        )
 
 
 class FailedAttempt(NamedTuple):
@@ -50,8 +98,7 @@ class InstructorRetryException(InstructorError):
         self.n_attempts = n_attempts
         self.total_usage = total_usage
         self.create_kwargs = create_kwargs
-        self.failed_attempts = failed_attempts or []
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, failed_attempts=failed_attempts, **kwargs)
 
 
 class ValidationError(InstructorError):

@@ -314,6 +314,60 @@ def double_retry_extraction(text: str) -> UserInfo:
     )
 ```
 
+## Failed Attempts Tracking
+
+Instructor's retry system now tracks all failed attempts with detailed context for better debugging and error handling.
+
+### Enhanced Error Context
+
+When retries fail, exceptions include comprehensive failure history:
+
+```python
+import instructor
+from instructor.core.exceptions import InstructorRetryException
+from pydantic import BaseModel, field_validator
+
+client = instructor.from_provider("openai/gpt-4.1-mini")
+
+class UserInfo(BaseModel):
+    name: str
+    age: int
+    
+    @field_validator('age')
+    @classmethod
+    def validate_age(cls, v):
+        if v < 0 or v > 150:
+            raise ValueError(f"Age {v} is invalid")
+        return v
+
+try:
+    result = client.chat.completions.create(
+        response_model=UserInfo,
+        messages=[{"role": "user", "content": "Extract: John is -5 years old"}],
+        max_retries=3
+    )
+except InstructorRetryException as e:
+    # Access failed attempts for debugging
+    print(f"Failed after {e.n_attempts} attempts")
+    for attempt in e.failed_attempts:
+        print(f"Attempt {attempt.attempt_number}: {attempt.exception}")
+    
+    # Exception string includes rich context:
+    # <failed_attempts>
+    #   <generation number="1">
+    #     <exception>ValidationError: Age -5 is invalid</exception>
+    #     <completion>{"name": "John", "age": -5}</completion>
+    #   </generation>
+    # </failed_attempts>
+```
+
+### Improved Reask Behavior
+
+Failed attempts are automatically propagated to reask handlers, enabling:
+- **Contextual error messages** - LLMs receive previous failure information
+- **Progressive corrections** - Each retry learns from past mistakes  
+- **Smarter retry strategies** - Better pattern recognition across attempts
+
 ## Best Practices for Tenacity with Instructor
 
 ### 1. Choose Appropriate Retry Strategies
