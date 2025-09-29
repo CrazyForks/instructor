@@ -14,7 +14,7 @@ from pydantic import (
 )
 
 from ..core.exceptions import IncompleteOutputException
-from ..mode import Mode
+from ..core.mode import Mode
 from ..utils import (
     classproperty,
     extract_json_from_codeblock,

@@ -6,12 +6,12 @@ This module provides lazy imports to avoid circular import issues.
 
 def __getattr__(name: str):
     """Lazy import to avoid circular dependencies."""
-    from ..processing import validators as processing_validators
+    from ..processing import validation_utils
     from .. import validation
 
-    # Try processing.validators first
-    if hasattr(processing_validators, name):
-        return getattr(processing_validators, name)
+    # Try processing.validation_utils first
+    if hasattr(validation_utils, name):
+        return getattr(validation_utils, name)
 
     # Then try validation module
     if hasattr(validation, name):

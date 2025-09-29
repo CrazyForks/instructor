@@ -16,7 +16,7 @@ Key Components:
 Example:
     ```python
     from instructor.process_response import process_response
-    from ..mode import Mode
+    from ..core.mode import Mode
     from pydantic import BaseModel
 
     class User(BaseModel):
@@ -48,11 +48,11 @@ from instructor.core.exceptions import InstructorError
 from ..dsl.iterable import IterableBase
 from ..dsl.parallel import ParallelBase
 from ..dsl.partial import PartialBase
-from ..dsl.simple_type import AdapterBase
+from ..dsl.primitives import AdapterBase
 
 if TYPE_CHECKING:
     from .function_calls import OpenAISchema
-from ..mode import Mode
+from ..core.mode import Mode
 from .multimodal import convert_messages
 from ..utils.core import prepare_response_model
 

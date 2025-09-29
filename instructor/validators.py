@@ -17,14 +17,14 @@ def __getattr__(name: str):
     )
 
     from . import validation
-    from .processing import validators as processing_validators
+    from .processing import validation_utils
 
     # Try validation module first
     if hasattr(validation, name):
         return getattr(validation, name)
 
-    # Then try processing.validators
-    if hasattr(processing_validators, name):
-        return getattr(processing_validators, name)
+    # Then try processing.validation_utils
+    if hasattr(validation_utils, name):
+        return getattr(validation_utils, name)
 
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

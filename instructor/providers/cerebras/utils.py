@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...mode import Mode
+from ...core.mode import Mode
 from ...utils.core import dump_message
 from ...processing.schema import generate_openai_schema
 

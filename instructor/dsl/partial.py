@@ -30,7 +30,7 @@ from jiter import from_json
 from pydantic import BaseModel, create_model
 from pydantic.fields import FieldInfo
 
-from instructor.mode import Mode
+from ..core.mode import Mode
 from instructor.utils import extract_json_from_stream, extract_json_from_stream_async
 
 T_Model = TypeVar("T_Model", bound=BaseModel)

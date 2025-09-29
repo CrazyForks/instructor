@@ -2,6 +2,7 @@ from __future__ import annotations  # type: ignore
 
 from typing import Any, overload
 
+from ...core.mode import Mode
 import instructor
 from ...core.client import AsyncInstructor, Instructor
 
@@ -12,7 +13,7 @@ from cerebras.cloud.sdk import Cerebras, AsyncCerebras
 @overload
 def from_cerebras(
     client: Cerebras,
-    mode: instructor.Mode = instructor.Mode.CEREBRAS_TOOLS,
+    mode: Mode = Mode.CEREBRAS_TOOLS,
     **kwargs: Any,
 ) -> Instructor: ...
 
@@ -20,19 +21,19 @@ def from_cerebras(
 @overload
 def from_cerebras(
     client: AsyncCerebras,
-    mode: instructor.Mode = instructor.Mode.CEREBRAS_TOOLS,
+    mode: Mode = Mode.CEREBRAS_TOOLS,
     **kwargs: Any,
 ) -> AsyncInstructor: ...
 
 
 def from_cerebras(
     client: Cerebras | AsyncCerebras,
-    mode: instructor.Mode = instructor.Mode.CEREBRAS_TOOLS,
+    mode: Mode = Mode.CEREBRAS_TOOLS,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     valid_modes = {
-        instructor.Mode.CEREBRAS_TOOLS,
-        instructor.Mode.CEREBRAS_JSON,
+        Mode.CEREBRAS_TOOLS,
+        Mode.CEREBRAS_JSON,
     }
 
     if mode not in valid_modes:

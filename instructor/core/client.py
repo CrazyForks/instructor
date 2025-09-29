@@ -4,6 +4,7 @@ import openai
 import inspect
 from functools import partial
 import instructor
+from .mode import Mode
 from ..utils.providers import Provider, get_provider
 from openai.types.chat import ChatCompletionMessageParam
 from typing import (
@@ -212,7 +213,7 @@ class AsyncResponse(Response):
 class Instructor:
     client: Any | None
     create_fn: Callable[..., Any]
-    mode: instructor.Mode
+    mode: Mode
     default_model: str | None = None
     provider: Provider
     hooks: Hooks
@@ -221,7 +222,7 @@ class Instructor:
         self,
         client: Any | None,
         create: Callable[..., Any],
-        mode: instructor.Mode = instructor.Mode.TOOLS,
+        mode: Mode = Mode.TOOLS,
         provider: Provider = Provider.OPENAI,
         hooks: Hooks | None = None,
         **kwargs: Any,
@@ -229,16 +230,16 @@ class Instructor:
         self.client = client
         self.create_fn = create
         self.mode = mode
-        if mode == instructor.Mode.FUNCTIONS:
-            instructor.Mode.warn_mode_functions_deprecation()
+        if mode == Mode.FUNCTIONS:
+            Mode.warn_mode_functions_deprecation()
 
         self.kwargs = kwargs
         self.provider = provider
         self.hooks = hooks or Hooks()
 
         if mode in {
-            instructor.Mode.RESPONSES_TOOLS,
-            instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+            Mode.RESPONSES_TOOLS,
+            Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
         }:
             assert isinstance(client, (openai.OpenAI, openai.AsyncOpenAI))
             self.responses = Response(client=self)
@@ -577,7 +578,7 @@ class Instructor:
 class AsyncInstructor(Instructor):
     client: Any | None
     create_fn: Callable[..., Any]
-    mode: instructor.Mode
+    mode: Mode
     default_model: str | None = None
     provider: Provider
     hooks: Hooks
@@ -586,7 +587,7 @@ class AsyncInstructor(Instructor):
         self,
         client: Any | None,
         create: Callable[..., Any],
-        mode: instructor.Mode = instructor.Mode.TOOLS,
+        mode: Mode = Mode.TOOLS,
         provider: Provider = Provider.OPENAI,
         hooks: Hooks | None = None,
         **kwargs: Any,
@@ -599,8 +600,8 @@ class AsyncInstructor(Instructor):
         self.hooks = hooks or Hooks()
 
         if mode in {
-            instructor.Mode.RESPONSES_TOOLS,
-            instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+            Mode.RESPONSES_TOOLS,
+            Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
         }:
             assert isinstance(client, (openai.OpenAI, openai.AsyncOpenAI))
             self.responses = AsyncResponse(client=self)
@@ -630,9 +631,9 @@ class AsyncInstructor(Instructor):
             and get_args(response_model)[0] is not None
             and self.mode
             not in {
-                instructor.Mode.PARALLEL_TOOLS,
-                instructor.Mode.VERTEXAI_PARALLEL_TOOLS,
-                instructor.Mode.ANTHROPIC_PARALLEL_TOOLS,
+                Mode.PARALLEL_TOOLS,
+                Mode.VERTEXAI_PARALLEL_TOOLS,
+                Mode.ANTHROPIC_PARALLEL_TOOLS,
             }
         ):
             return self.create_iterable(
@@ -753,7 +754,7 @@ class AsyncInstructor(Instructor):
 @overload
 def from_openai(
     client: openai.OpenAI,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> Instructor:
     pass
@@ -762,7 +763,7 @@ def from_openai(
 @overload
 def from_openai(
     client: openai.AsyncOpenAI,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> AsyncInstructor:
     pass
@@ -788,7 +789,7 @@ async def async_map_chat_completion_to_response(
 
 def from_openai(
     client: openai.OpenAI | openai.AsyncOpenAI,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     if hasattr(client, "base_url"):
@@ -806,30 +807,30 @@ def from_openai(
 
     if provider in {Provider.OPENROUTER}:
         assert mode in {
-            instructor.Mode.TOOLS,
-            instructor.Mode.OPENROUTER_STRUCTURED_OUTPUTS,
-            instructor.Mode.JSON,
+            Mode.TOOLS,
+            Mode.OPENROUTER_STRUCTURED_OUTPUTS,
+            Mode.JSON,
         }
 
     if provider in {Provider.ANYSCALE, Provider.TOGETHER}:
         assert mode in {
-            instructor.Mode.TOOLS,
-            instructor.Mode.JSON,
-            instructor.Mode.JSON_SCHEMA,
-            instructor.Mode.MD_JSON,
+            Mode.TOOLS,
+            Mode.JSON,
+            Mode.JSON_SCHEMA,
+            Mode.MD_JSON,
         }
 
     if provider in {Provider.OPENAI, Provider.DATABRICKS}:
         assert mode in {
-            instructor.Mode.TOOLS,
-            instructor.Mode.JSON,
-            instructor.Mode.FUNCTIONS,
-            instructor.Mode.PARALLEL_TOOLS,
-            instructor.Mode.MD_JSON,
-            instructor.Mode.TOOLS_STRICT,
-            instructor.Mode.JSON_O1,
-            instructor.Mode.RESPONSES_TOOLS,
-            instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+            Mode.TOOLS,
+            Mode.JSON,
+            Mode.FUNCTIONS,
+            Mode.PARALLEL_TOOLS,
+            Mode.MD_JSON,
+            Mode.TOOLS_STRICT,
+            Mode.JSON_O1,
+            Mode.RESPONSES_TOOLS,
+            Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
         }
 
     if isinstance(client, openai.OpenAI):
@@ -840,8 +841,8 @@ def from_openai(
                     client.chat.completions.create
                     if mode
                     not in {
-                        instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-                        instructor.Mode.RESPONSES_TOOLS,
+                        Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+                        Mode.RESPONSES_TOOLS,
                     }
                     else partial(map_chat_completion_to_response, client=client)
                 ),
@@ -860,8 +861,8 @@ def from_openai(
                     client.chat.completions.create
                     if mode
                     not in {
-                        instructor.Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
-                        instructor.Mode.RESPONSES_TOOLS,
+                        Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS,
+                        Mode.RESPONSES_TOOLS,
                     }
                     else partial(async_map_chat_completion_to_response, client=client)
                 ),
@@ -876,7 +877,7 @@ def from_openai(
 @overload
 def from_litellm(
     completion: Callable[..., Awaitable[Any]],
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> AsyncInstructor: ...
 
@@ -884,14 +885,14 @@ def from_litellm(
 @overload
 def from_litellm(
     completion: Callable[..., Any],
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> Instructor: ...
 
 
 def from_litellm(
     completion: Callable[..., Any] | Callable[..., Awaitable[Any]],
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     is_async = inspect.iscoroutinefunction(completion)

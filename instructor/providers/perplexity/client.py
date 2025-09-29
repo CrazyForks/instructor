@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import openai
 import instructor
+from ...core.mode import Mode
 from typing import overload, Any
 
 
 @overload
 def from_perplexity(
     client: openai.OpenAI,
-    mode: instructor.Mode = instructor.Mode.PERPLEXITY_JSON,
+    mode: Mode = Mode.PERPLEXITY_JSON,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
 
@@ -16,14 +17,14 @@ def from_perplexity(
 @overload
 def from_perplexity(
     client: openai.AsyncOpenAI,
-    mode: instructor.Mode = instructor.Mode.PERPLEXITY_JSON,
+    mode: Mode = Mode.PERPLEXITY_JSON,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
 
 
 def from_perplexity(
     client: openai.OpenAI | openai.AsyncOpenAI,
-    mode: instructor.Mode = instructor.Mode.PERPLEXITY_JSON,
+    mode: Mode = Mode.PERPLEXITY_JSON,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
     """Create an Instructor client from a Perplexity client.
@@ -36,7 +37,7 @@ def from_perplexity(
     Returns:
         An Instructor client
     """
-    valid_modes = {instructor.Mode.PERPLEXITY_JSON}
+    valid_modes = {Mode.PERPLEXITY_JSON}
 
     if mode not in valid_modes:
         from ...core.exceptions import ModeError

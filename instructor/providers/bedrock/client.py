@@ -2,6 +2,7 @@ from __future__ import annotations  # type: ignore
 
 from typing import Any, Literal, overload
 import warnings
+from ...core.mode import Mode
 
 import boto3
 from botocore.client import BaseClient
@@ -13,7 +14,7 @@ from ...core.client import AsyncInstructor, Instructor
 @overload  # type: ignore
 def from_bedrock(
     client: boto3.client,
-    mode: instructor.Mode = instructor.Mode.BEDROCK_TOOLS,
+    mode: Mode = Mode.BEDROCK_TOOLS,
     async_client: Literal[False] = False,
     **kwargs: Any,
 ) -> Instructor: ...
@@ -22,7 +23,7 @@ def from_bedrock(
 @overload  # type: ignore
 def from_bedrock(
     client: boto3.client,
-    mode: instructor.Mode = instructor.Mode.BEDROCK_TOOLS,
+    mode: Mode = Mode.BEDROCK_TOOLS,
     async_client: Literal[True] = True,
     **kwargs: Any,
 ) -> AsyncInstructor: ...
@@ -41,7 +42,7 @@ def handle_bedrock_json(
 
 def from_bedrock(
     client: BaseClient,
-    mode: instructor.Mode = instructor.Mode.BEDROCK_JSON,
+    mode: Mode = Mode.BEDROCK_JSON,
     async_client: bool = False,
     _async: bool | None = None,  # Deprecated, use async_client
     **kwargs: Any,
@@ -50,8 +51,8 @@ def from_bedrock(
     Accepts both 'async_client' (preferred) and '_async' (deprecated) for async mode.
     """
     valid_modes = {
-        instructor.Mode.BEDROCK_TOOLS,
-        instructor.Mode.BEDROCK_JSON,
+        Mode.BEDROCK_TOOLS,
+        Mode.BEDROCK_JSON,
     }
 
     if mode not in valid_modes:

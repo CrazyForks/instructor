@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import anthropic
 import instructor
+from ...core.mode import Mode
 
 from typing import overload, Any
 
@@ -11,7 +12,7 @@ def from_anthropic(
     client: (
         anthropic.Anthropic | anthropic.AnthropicBedrock | anthropic.AnthropicVertex
     ),
-    mode: instructor.Mode = instructor.Mode.ANTHROPIC_TOOLS,
+    mode: Mode = Mode.ANTHROPIC_TOOLS,
     beta: bool = False,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
@@ -24,7 +25,7 @@ def from_anthropic(
         | anthropic.AsyncAnthropicBedrock
         | anthropic.AsyncAnthropicVertex
     ),
-    mode: instructor.Mode = instructor.Mode.ANTHROPIC_TOOLS,
+    mode: Mode = Mode.ANTHROPIC_TOOLS,
     beta: bool = False,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
@@ -39,7 +40,7 @@ def from_anthropic(
         | anthropic.AsyncAnthropicVertex
         | anthropic.AnthropicVertex
     ),
-    mode: instructor.Mode = instructor.Mode.ANTHROPIC_TOOLS,
+    mode: Mode = Mode.ANTHROPIC_TOOLS,
     beta: bool = False,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
@@ -59,10 +60,10 @@ def from_anthropic(
         ClientError: If client is not a valid Anthropic client instance
     """
     valid_modes = {
-        instructor.Mode.ANTHROPIC_JSON,
-        instructor.Mode.ANTHROPIC_TOOLS,
-        instructor.Mode.ANTHROPIC_REASONING_TOOLS,
-        instructor.Mode.ANTHROPIC_PARALLEL_TOOLS,
+        Mode.ANTHROPIC_JSON,
+        Mode.ANTHROPIC_TOOLS,
+        Mode.ANTHROPIC_REASONING_TOOLS,
+        Mode.ANTHROPIC_PARALLEL_TOOLS,
     }
 
     if mode not in valid_modes:

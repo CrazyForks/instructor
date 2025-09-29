@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
-from ...mode import Mode
+from ...core.mode import Mode
 
 if TYPE_CHECKING:
     from xai_sdk import chat as xchat

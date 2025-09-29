@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from ...dsl.partial import Partial, PartialBase
 from ...core.exceptions import ConfigurationError
-from ...mode import Mode
+from ...core.mode import Mode
 from ...processing.multimodal import Audio, Image, PDF
 from ...utils.core import get_message_content
 

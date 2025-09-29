@@ -8,7 +8,7 @@ from typing import Any, Callable, TypeVar
 
 from .exceptions import InstructorRetryException, AsyncValidationError, FailedAttempt
 from .hooks import Hooks
-from ..mode import Mode
+from ..core.mode import Mode
 from ..processing.response import (
     process_response,
     process_response_async,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Union, get_origin
 
+from ...core.mode import Mode
 from vertexai.preview.generative_models import ToolConfig  # type: ignore
 import vertexai.generative_models as gm  # type: ignore
 from pydantic import BaseModel
@@ -137,7 +138,7 @@ def vertexai_process_json_response(_kwargs: dict[str, Any], model: BaseModel):
 
 def from_vertexai(
     client: gm.GenerativeModel,
-    mode: instructor.Mode = instructor.Mode.VERTEXAI_TOOLS,
+    mode: Mode = Mode.VERTEXAI_TOOLS,
     _async: bool = False,
     use_async: bool | None = None,
     **kwargs: Any,
@@ -164,9 +165,9 @@ def from_vertexai(
     )
 
     valid_modes = {
-        instructor.Mode.VERTEXAI_PARALLEL_TOOLS,
-        instructor.Mode.VERTEXAI_TOOLS,
-        instructor.Mode.VERTEXAI_JSON,
+        Mode.VERTEXAI_PARALLEL_TOOLS,
+        Mode.VERTEXAI_TOOLS,
+        Mode.VERTEXAI_JSON,
     }
 
     if mode not in valid_modes:

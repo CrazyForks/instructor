@@ -10,7 +10,7 @@ import json
 from textwrap import dedent
 from typing import Any
 
-from ...mode import Mode
+from ...core.mode import Mode
 
 
 def generate_bedrock_schema(response_model: type[Any]) -> dict[str, Any]:

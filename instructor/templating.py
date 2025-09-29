@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from textwrap import dedent
-from instructor.mode import Mode
+from .core.mode import Mode
 from jinja2.sandbox import SandboxedEnvironment
 
 

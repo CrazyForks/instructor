@@ -2,7 +2,7 @@ from typing import Callable
 
 from openai import OpenAI
 
-from ..processing.validators import Validator
+from ..processing.validation_utils import Validator
 from ..core.client import Instructor
 
 

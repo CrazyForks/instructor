@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 import mimetypes
 import requests
 from pydantic import BaseModel, Field
-from ..mode import Mode
+from ..core.mode import Mode
 
 F = TypeVar("F", bound=Callable[..., Any])
 K = TypeVar("K", bound=Hashable)

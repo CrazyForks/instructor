@@ -13,7 +13,7 @@ from collections.abc import Generator
 from pydantic import BaseModel
 from collections.abc import Iterable
 
-from ..mode import Mode
+from ..core.mode import Mode
 
 if TYPE_CHECKING:
     from ..processing.function_calls import OpenAISchema

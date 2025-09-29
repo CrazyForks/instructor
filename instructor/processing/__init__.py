@@ -13,7 +13,7 @@ from .schema import (
     generate_anthropic_schema,
     generate_gemini_schema,
 )
-from .validators import Validator
+from .validation_utils import Validator
 
 __all__ = [
     "OpenAISchema",

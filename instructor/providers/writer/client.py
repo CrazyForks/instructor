@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from ...core.mode import Mode
 import instructor
 from writerai import AsyncWriter, Writer
 from typing import overload, Any
@@ -10,7 +11,7 @@ from typing import overload, Any
 @overload
 def from_writer(
     client: Writer,
-    mode: instructor.Mode = instructor.Mode.WRITER_TOOLS,
+    mode: Mode = Mode.WRITER_TOOLS,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
 
@@ -18,17 +19,17 @@ def from_writer(
 @overload
 def from_writer(
     client: AsyncWriter,
-    mode: instructor.Mode = instructor.Mode.WRITER_TOOLS,
+    mode: Mode = Mode.WRITER_TOOLS,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
 
 
 def from_writer(
     client: Writer | AsyncWriter,
-    mode: instructor.Mode = instructor.Mode.WRITER_TOOLS,
+    mode: Mode = Mode.WRITER_TOOLS,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
-    valid_modes = {instructor.Mode.WRITER_TOOLS, instructor.Mode.WRITER_JSON}
+    valid_modes = {Mode.WRITER_TOOLS, Mode.WRITER_JSON}
 
     if mode not in valid_modes:
         from ...core.exceptions import ModeError

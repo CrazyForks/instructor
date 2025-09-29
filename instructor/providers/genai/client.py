@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal, overload
+from ...core.mode import Mode
 
 from google.genai import Client
 
@@ -11,7 +12,7 @@ import instructor
 @overload
 def from_genai(
     client: Client,
-    mode: instructor.Mode = instructor.Mode.GENAI_TOOLS,
+    mode: Mode = Mode.GENAI_TOOLS,
     use_async: Literal[True] = True,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
@@ -20,7 +21,7 @@ def from_genai(
 @overload
 def from_genai(
     client: Client,
-    mode: instructor.Mode = instructor.Mode.GENAI_TOOLS,
+    mode: Mode = Mode.GENAI_TOOLS,
     use_async: Literal[False] = False,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
@@ -28,13 +29,13 @@ def from_genai(
 
 def from_genai(
     client: Client,
-    mode: instructor.Mode = instructor.Mode.GENAI_TOOLS,
+    mode: Mode = Mode.GENAI_TOOLS,
     use_async: bool = False,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
     valid_modes = {
-        instructor.Mode.GENAI_TOOLS,
-        instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
+        Mode.GENAI_TOOLS,
+        Mode.GENAI_STRUCTURED_OUTPUTS,
     }
 
     if mode not in valid_modes:

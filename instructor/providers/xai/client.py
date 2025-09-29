@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, overload
 import json
+from ...core.mode import Mode
 
 from instructor.dsl.iterable import IterableBase
 from instructor.dsl.partial import PartialBase
@@ -32,7 +33,7 @@ else:
 @overload
 def from_xai(
     client: SyncClient,
-    mode: instructor.Mode = instructor.Mode.XAI_JSON,
+    mode: Mode = Mode.XAI_JSON,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
 
@@ -40,17 +41,17 @@ def from_xai(
 @overload
 def from_xai(
     client: AsyncClient,
-    mode: instructor.Mode = instructor.Mode.XAI_JSON,
+    mode: Mode = Mode.XAI_JSON,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
 
 
 def from_xai(
     client: SyncClient | AsyncClient,
-    mode: instructor.Mode = instructor.Mode.XAI_JSON,
+    mode: Mode = Mode.XAI_JSON,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
-    valid_modes = {instructor.Mode.XAI_JSON, instructor.Mode.XAI_TOOLS}
+    valid_modes = {Mode.XAI_JSON, Mode.XAI_TOOLS}
 
     if mode not in valid_modes:
         from ...core.exceptions import ModeError
@@ -91,7 +92,7 @@ def from_xai(
         if is_stream:
             response_model = prepare_response_model(response_model)
 
-        if mode == instructor.Mode.XAI_JSON:
+        if mode == Mode.XAI_JSON:
             if is_stream:
                 # code from xai_sdk.chat.parse
                 chat.proto.response_format.CopyFrom(
@@ -169,7 +170,7 @@ def from_xai(
         if is_stream:
             response_model = prepare_response_model(response_model)
 
-        if mode == instructor.Mode.XAI_JSON:
+        if mode == Mode.XAI_JSON:
             if is_stream:
                 # code from xai_sdk.chat.parse
                 chat.proto.response_format.CopyFrom(

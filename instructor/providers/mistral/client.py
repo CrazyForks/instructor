@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from ...core.mode import Mode
 from mistralai import Mistral
 import instructor
 from typing import overload, Any, Literal
@@ -10,7 +11,7 @@ from typing import overload, Any, Literal
 @overload
 def from_mistral(
     client: Mistral,
-    mode: instructor.Mode = instructor.Mode.MISTRAL_TOOLS,
+    mode: Mode = Mode.MISTRAL_TOOLS,
     use_async: Literal[True] = True,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
@@ -19,7 +20,7 @@ def from_mistral(
 @overload
 def from_mistral(
     client: Mistral,
-    mode: instructor.Mode = instructor.Mode.MISTRAL_TOOLS,
+    mode: Mode = Mode.MISTRAL_TOOLS,
     use_async: Literal[False] = False,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
@@ -27,13 +28,13 @@ def from_mistral(
 
 def from_mistral(
     client: Mistral,
-    mode: instructor.Mode = instructor.Mode.MISTRAL_TOOLS,
+    mode: Mode = Mode.MISTRAL_TOOLS,
     use_async: bool = False,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
     valid_modes = {
-        instructor.Mode.MISTRAL_TOOLS,
-        instructor.Mode.MISTRAL_STRUCTURED_OUTPUTS,
+        Mode.MISTRAL_TOOLS,
+        Mode.MISTRAL_STRUCTURED_OUTPUTS,
     }
 
     if mode not in valid_modes:

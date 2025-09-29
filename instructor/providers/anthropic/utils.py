@@ -12,7 +12,7 @@ from typing import Any, TypedDict, Union
 from pydantic import ValidationError
 from ...core.exceptions import ValidationError as InstructorValidationError
 
-from ...mode import Mode
+from ...core.mode import Mode
 from ...processing.schema import generate_anthropic_schema
 
 

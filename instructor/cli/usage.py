@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
 
-from instructor._types._alias import ModelNames
+from instructor.types._alias import ModelNames
 
 
 app = typer.Typer()

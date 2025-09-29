@@ -19,7 +19,7 @@ from ..utils import is_async
 from .hooks import Hooks
 from ..templating import handle_templating
 
-from ..mode import Mode
+from ..core.mode import Mode
 import logging
 
 from tenacity import (  # type: ignore[import-not-found]

@@ -11,7 +11,7 @@ from typing import (
 )
 import json
 from pydantic import BaseModel, Field, create_model
-from ..mode import Mode
+from ..core.mode import Mode
 from ..utils import extract_json_from_stream, extract_json_from_stream_async
 
 if TYPE_CHECKING:

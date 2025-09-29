@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import overload, Any
 
+from ...core.mode import Mode
 import groq
 import instructor
 
@@ -9,7 +10,7 @@ import instructor
 @overload
 def from_groq(
     client: groq.Groq,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
 
@@ -17,19 +18,19 @@ def from_groq(
 @overload
 def from_groq(
     client: groq.AsyncGroq,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
 
 
 def from_groq(
     client: groq.Groq | groq.AsyncGroq,
-    mode: instructor.Mode = instructor.Mode.TOOLS,
+    mode: Mode = Mode.TOOLS,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
     valid_modes = {
-        instructor.Mode.JSON,
-        instructor.Mode.TOOLS,
+        Mode.JSON,
+        Mode.TOOLS,
     }
 
     if mode not in valid_modes:

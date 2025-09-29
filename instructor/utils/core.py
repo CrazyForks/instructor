@@ -556,7 +556,7 @@ def is_typed_dict(cls) -> bool:
 
 def is_simple_type(typehint: type[T]) -> bool:
     """Check if a type is a simple type that can be adapted."""
-    from instructor.dsl.simple_type import is_simple_type as _is_simple_type
+    from instructor.dsl.primitives import is_simple_type as _is_simple_type
 
     return _is_simple_type(typehint)
 
@@ -582,7 +582,7 @@ def prepare_response_model(response_model: type[T] | None) -> type[T] | None:
         return None
 
     if is_simple_type(response_model):
-        from instructor.dsl.simple_type import ModelAdapter
+        from instructor.dsl.primitives import ModelAdapter
 
         response_model = ModelAdapter[response_model]
 

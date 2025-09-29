@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import cohere
 import instructor
+from ...core.mode import Mode
 from typing import (
     TypeVar,
     overload,
@@ -18,7 +19,7 @@ T_ParamSpec = ParamSpec("T_ParamSpec")
 @overload
 def from_cohere(
     client: cohere.Client,
-    mode: instructor.Mode = instructor.Mode.COHERE_TOOLS,
+    mode: Mode = Mode.COHERE_TOOLS,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
 
@@ -26,19 +27,19 @@ def from_cohere(
 @overload
 def from_cohere(
     client: cohere.AsyncClient,
-    mode: instructor.Mode = instructor.Mode.COHERE_JSON_SCHEMA,
+    mode: Mode = Mode.COHERE_JSON_SCHEMA,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
 
 
 def from_cohere(
     client: cohere.Client | cohere.AsyncClient,
-    mode: instructor.Mode = instructor.Mode.COHERE_TOOLS,
+    mode: Mode = Mode.COHERE_TOOLS,
     **kwargs: Any,
 ):
     valid_modes = {
-        instructor.Mode.COHERE_TOOLS,
-        instructor.Mode.COHERE_JSON_SCHEMA,
+        Mode.COHERE_TOOLS,
+        Mode.COHERE_JSON_SCHEMA,
     }
 
     if mode not in valid_modes:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal, overload
+from ...core.mode import Mode
 
 import google.generativeai as genai
 
@@ -11,7 +12,7 @@ import instructor
 @overload
 def from_gemini(
     client: genai.GenerativeModel,
-    mode: instructor.Mode = instructor.Mode.GEMINI_JSON,
+    mode: Mode = Mode.GEMINI_JSON,
     use_async: Literal[True] = True,
     **kwargs: Any,
 ) -> instructor.AsyncInstructor: ...
@@ -20,7 +21,7 @@ def from_gemini(
 @overload
 def from_gemini(
     client: genai.GenerativeModel,
-    mode: instructor.Mode = instructor.Mode.GEMINI_JSON,
+    mode: Mode = Mode.GEMINI_JSON,
     use_async: Literal[False] = False,
     **kwargs: Any,
 ) -> instructor.Instructor: ...
@@ -28,7 +29,7 @@ def from_gemini(
 
 def from_gemini(
     client: genai.GenerativeModel,
-    mode: instructor.Mode = instructor.Mode.GEMINI_JSON,
+    mode: Mode = Mode.GEMINI_JSON,
     use_async: bool = False,
     **kwargs: Any,
 ) -> instructor.Instructor | instructor.AsyncInstructor:
@@ -54,8 +55,8 @@ def from_gemini(
     )
 
     valid_modes = {
-        instructor.Mode.GEMINI_JSON,
-        instructor.Mode.GEMINI_TOOLS,
+        Mode.GEMINI_JSON,
+        Mode.GEMINI_TOOLS,
     }
 
     if mode not in valid_modes:

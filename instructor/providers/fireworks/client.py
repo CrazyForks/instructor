@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, overload
 
+from ...core.mode import Mode
 import instructor
 from ...core.client import AsyncInstructor, Instructor
 
@@ -12,7 +13,7 @@ from fireworks.client import Fireworks, AsyncFireworks  # type:ignore
 @overload
 def from_fireworks(
     client: Fireworks,
-    mode: instructor.Mode = instructor.Mode.FIREWORKS_JSON,
+    mode: Mode = Mode.FIREWORKS_JSON,
     **kwargs: Any,
 ) -> Instructor: ...
 
@@ -20,19 +21,19 @@ def from_fireworks(
 @overload
 def from_fireworks(
     client: AsyncFireworks,
-    mode: instructor.Mode = instructor.Mode.FIREWORKS_JSON,
+    mode: Mode = Mode.FIREWORKS_JSON,
     **kwargs: Any,
 ) -> AsyncInstructor: ...
 
 
 def from_fireworks(
     client: Fireworks | AsyncFireworks,
-    mode: instructor.Mode = instructor.Mode.FIREWORKS_JSON,
+    mode: Mode = Mode.FIREWORKS_JSON,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     valid_modes = {
-        instructor.Mode.FIREWORKS_TOOLS,
-        instructor.Mode.FIREWORKS_JSON,
+        Mode.FIREWORKS_TOOLS,
+        Mode.FIREWORKS_JSON,
     }
 
     if mode not in valid_modes:
