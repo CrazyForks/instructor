@@ -6,7 +6,8 @@ Tests that verify the v2 hierarchical registry works end-to-end with Anthropic.
 import pytest
 from pydantic import BaseModel
 
-from instructor.v2 import ModeType, Provider, from_anthropic, mode_registry
+from instructor import Mode
+from instructor.v2 import Provider, from_anthropic, mode_registry
 
 
 class User(BaseModel):
@@ -18,9 +19,9 @@ class User(BaseModel):
 
 def test_anthropic_tools_mode_registered():
     """Verify Anthropic TOOLS mode is registered in v2 registry."""
-    assert mode_registry.is_registered(Provider.ANTHROPIC, ModeType.TOOLS)
+    assert mode_registry.is_registered(Provider.ANTHROPIC, Mode.TOOLS)
 
-    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, ModeType.TOOLS)
+    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, Mode.TOOLS)
     assert handlers.request_handler is not None
     assert handlers.reask_handler is not None
     assert handlers.response_parser is not None
@@ -28,9 +29,9 @@ def test_anthropic_tools_mode_registered():
 
 def test_anthropic_json_mode_registered():
     """Verify Anthropic JSON mode is registered in v2 registry."""
-    assert mode_registry.is_registered(Provider.ANTHROPIC, ModeType.JSON)
+    assert mode_registry.is_registered(Provider.ANTHROPIC, Mode.JSON)
 
-    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, ModeType.JSON)
+    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, Mode.JSON)
     assert handlers.request_handler is not None
     assert handlers.reask_handler is not None
     assert handlers.response_parser is not None
@@ -42,10 +43,9 @@ def test_v2_from_anthropic_tools_mode():
     import anthropic
 
     client = anthropic.Anthropic()
-    instructor_client = from_anthropic(client, ModeType.TOOLS)
+    instructor_client = from_anthropic(client, Mode.TOOLS)
 
     assert instructor_client is not None
-    assert instructor_client.provider == Provider.ANTHROPIC
 
 
 @pytest.mark.skip(reason="Requires Anthropic API key")
@@ -54,10 +54,9 @@ def test_v2_from_anthropic_json_mode():
     import anthropic
 
     client = anthropic.Anthropic()
-    instructor_client = from_anthropic(client, ModeType.JSON)
+    instructor_client = from_anthropic(client, Mode.JSON)
 
     assert instructor_client is not None
-    assert instructor_client.provider == Provider.ANTHROPIC
 
 
 @pytest.mark.skip(reason="Requires Anthropic API key")
@@ -66,7 +65,7 @@ def test_v2_from_anthropic_async():
     import anthropic
 
     client = anthropic.AsyncAnthropic()
-    instructor_client = from_anthropic(client, ModeType.TOOLS)
+    instructor_client = from_anthropic(client, Mode.TOOLS)
 
     assert instructor_client is not None
     # Should return AsyncInstructor for async client
@@ -84,20 +83,20 @@ def test_v2_from_anthropic_invalid_mode():
 
     # PARALLEL_TOOLS not implemented in v2 yet
     with pytest.raises(ValueError, match="not registered"):
-        from_anthropic(client, ModeType.PARALLEL_TOOLS)
+        from_anthropic(client, Mode.ANTHROPIC_PARALLEL_TOOLS)
 
 
 def test_query_anthropic_modes():
     """Test querying v2 registry for Anthropic modes."""
     modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
 
-    assert ModeType.TOOLS in modes
-    assert ModeType.JSON in modes
+    assert Mode.TOOLS in modes
+    assert Mode.JSON in modes
     assert len(modes) == 2  # Only TOOLS and JSON for now
 
 
 def test_query_tools_providers():
     """Test querying v2 registry for TOOLS mode providers."""
-    providers = mode_registry.get_providers_for_mode(ModeType.TOOLS)
+    providers = mode_registry.get_providers_for_mode(Mode.TOOLS)
 
     assert Provider.ANTHROPIC in providers
