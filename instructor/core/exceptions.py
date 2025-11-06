@@ -596,6 +596,6 @@ class MultimodalError(ValueError, InstructorError):
         if content_type:
             context_parts.append(f"content_type: {content_type}")
         if file_path:
-            context_parts.append(f"file_path: {file_path}")
+            context_parts.append(f"file: {file_path}")
         context = f" ({', '.join(context_parts)})" if context_parts else ""
         super().__init__(f"{message}{context}", *args, **kwargs)

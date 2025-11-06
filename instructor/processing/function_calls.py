@@ -13,7 +13,11 @@ from pydantic import (
     create_model,
 )
 
-from ..core.exceptions import IncompleteOutputException
+from ..core.exceptions import (
+    IncompleteOutputException,
+    ResponseParsingError,
+    ConfigurationError,
+)
 from ..mode import Mode
 from ..utils import (
     classproperty,
@@ -201,18 +205,14 @@ class OpenAISchema(BaseModel):
         if not completion.choices:
             # This helps catch errors from OpenRouter
             if hasattr(completion, "error"):
-                from ..core.exceptions import ResponseParsingError
-
                 raise ResponseParsingError(
-                    str(completion.error),
+                    f"LLM provider returned error: {completion.error}",
                     mode=str(mode),
                     raw_response=completion,
                 )
 
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
-                "No completion choices found",
+                "No completion choices found in LLM response",
                 mode=str(mode),
                 raw_response=completion,
             )
@@ -250,9 +250,9 @@ class OpenAISchema(BaseModel):
         }:
             return cls.parse_json(completion, validation_context, strict)
 
-        from ..core.exceptions import ConfigurationError
-
-        raise ConfigurationError(f"Invalid patch mode: {mode}")
+        raise ConfigurationError(
+            f"Invalid or unsupported mode: {mode}. This mode may not be implemented for response parsing."
+        )
 
     @classmethod
     def parse_genai_structured_outputs(
@@ -325,28 +325,22 @@ class OpenAISchema(BaseModel):
                         break
 
                 if text is None:
-                    from ..core.exceptions import ResponseParsingError
-
                     raise ResponseParsingError(
                         "Cohere V2 response has no text content item",
-                        mode="JSON",
+                        mode="COHERE_JSON_SCHEMA",
                         raw_response=completion,
                     )
             else:
-                from ..core.exceptions import ResponseParsingError
-
                 raise ResponseParsingError(
                     "Cohere V2 response has no content",
-                    mode="JSON",
+                    mode="COHERE_JSON_SCHEMA",
                     raw_response=completion,
                 )
         else:
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
                 f"Unsupported Cohere response format. Expected 'text' (V1) or "
                 f"'message.content[].text' (V2), got: {type(completion)}",
-                mode="JSON",
+                mode="COHERE_JSON_SCHEMA",
                 raw_response=completion,
             )
 
@@ -436,11 +430,9 @@ class OpenAISchema(BaseModel):
             content = completion["output"]["message"]["content"]
             text_content = next((c for c in content if "text" in c), None)
             if not text_content:
-                from ..core.exceptions import ResponseParsingError
-
                 raise ResponseParsingError(
-                    "Unexpected format. No text content found.",
-                    mode="JSON",
+                    "Unexpected format. No text content found in Bedrock response.",
+                    mode="BEDROCK_JSON",
                     raw_response=completion,
                 )
             text = text_content["text"]
@@ -478,11 +470,9 @@ class OpenAISchema(BaseModel):
                         strict=strict,
                     )
 
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
                 "No tool use found in Bedrock response",
-                mode="TOOLS",
+                mode="BEDROCK_TOOLS",
                 raw_response=completion,
             )
         else:
@@ -508,11 +498,9 @@ class OpenAISchema(BaseModel):
         try:
             extra_text = extract_json_from_codeblock(text)  # type: ignore
         except UnboundLocalError:
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
-                "Unable to extract JSON from completion text",
-                mode="JSON",
+                "Unable to extract JSON from completion text. The response may have been blocked or empty.",
+                mode="GEMINI_JSON",
                 raw_response=completion,
             ) from None
 
@@ -614,28 +602,22 @@ class OpenAISchema(BaseModel):
                         break
 
                 if text is None:
-                    from ..core.exceptions import ResponseParsingError
-
                     raise ResponseParsingError(
                         "Cohere V2 response has no text content item",
-                        mode="TOOLS",
+                        mode="COHERE_TOOLS",
                         raw_response=completion,
                     )
             else:
-                from ..core.exceptions import ResponseParsingError
-
                 raise ResponseParsingError(
                     "Cohere V2 response has no content",
-                    mode="TOOLS",
+                    mode="COHERE_TOOLS",
                     raw_response=completion,
                 )
         else:
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
                 f"Unsupported Cohere response format. Expected tool_calls or text content. "
                 f"Got: {type(completion)}",
-                mode="TOOLS",
+                mode="COHERE_TOOLS",
                 raw_response=completion,
             )
 
@@ -720,11 +702,9 @@ class OpenAISchema(BaseModel):
                     tool_call_message = message
                     break
         if not tool_call_message:
-            from ..core.exceptions import ResponseParsingError
-
             raise ResponseParsingError(
-                f"You must call {cls.openai_schema['name']} in your response",
-                mode="TOOLS",
+                f"Required tool call '{cls.openai_schema['name']}' not found in response",
+                mode="RESPONSES_TOOLS",
                 raw_response=completion,
             )
 
@@ -770,12 +750,9 @@ class OpenAISchema(BaseModel):
         strict: Optional[bool] = None,
     ) -> BaseModel:
         if not completion.choices or len(completion.choices) > 1:
-            from ..core.exceptions import ResponseParsingError
-
-            raise ResponseParsingError(
-                "Instructor does not support multiple tool calls, use list[Model] instead",
-                mode="MISTRAL_STRUCTURED_OUTPUTS",
-                raw_response=completion,
+            raise ConfigurationError(
+                "Instructor does not support multiple tool calls in MISTRAL_STRUCTURED_OUTPUTS mode. "
+                "Use list[Model] instead to handle multiple items."
             )
 
         message = completion.choices[0].message
@@ -813,7 +790,9 @@ def openai_schema(cls: type[BaseModel]) -> OpenAISchema:
     Wrap a Pydantic model class to add OpenAISchema functionality.
     """
     if not issubclass(cls, BaseModel):
-        raise TypeError("Class must be a subclass of pydantic.BaseModel")
+        raise ConfigurationError(
+            f"response_model must be a Pydantic BaseModel subclass, got {type(cls).__name__}"
+        )
 
     # Create the wrapped model
     schema = wraps(cls, updated=())(

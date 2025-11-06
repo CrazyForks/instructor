@@ -18,8 +18,9 @@ from urllib.parse import urlparse
 import mimetypes
 import requests
 from pydantic import BaseModel, Field
-from ..mode import Mode
+
 from ..core.exceptions import MultimodalError
+from ..mode import Mode
 
 F = TypeVar("F", bound=Callable[..., Any])
 K = TypeVar("K", bound=Hashable)
@@ -100,7 +101,7 @@ class Image(BaseModel):
         """
         try:
             return cls.autodetect(source)
-        except (ValueError, MultimodalError):
+        except ValueError:
             return str(source)
 
     @classmethod
@@ -113,7 +114,7 @@ class Image(BaseModel):
         media_type = header.split(":")[1].split(";")[0]
         if media_type not in VALID_MIME_TYPES:
             raise MultimodalError(
-                f"Unsupported image format: {media_type}",
+                f"Unsupported image format: {media_type}. Supported formats: {', '.join(VALID_MIME_TYPES)}",
                 content_type="image",
             )
         return cls(
@@ -132,10 +133,7 @@ class Image(BaseModel):
             timeout: Request timeout in seconds (default: 30)
         """
         if not data_uri.startswith("gs://"):
-            raise MultimodalError(
-                "URL must start with gs://",
-                content_type="image",
-            )
+            raise ValueError("URL must start with gs://")
 
         public_url = f"https://storage.googleapis.com/{data_uri[5:]}"
 
@@ -144,18 +142,14 @@ class Image(BaseModel):
             response.raise_for_status()
             media_type = response.headers.get("Content-Type")
             if media_type not in VALID_MIME_TYPES:
-                raise MultimodalError(
-                    f"Unsupported image format: {media_type}",
-                    content_type="image",
-                )
+                raise ValueError(f"Unsupported image format: {media_type}")
 
             data = base64.b64encode(response.content).decode("utf-8")
 
             return cls(source=data_uri, media_type=media_type, data=data)
         except requests.RequestException as e:
-            raise MultimodalError(
-                "Failed to access GCS image (must be publicly readable)",
-                content_type="image",
+            raise ValueError(
+                "Failed to access GCS image (must be publicly readable)"
             ) from e
 
     @classmethod  # Caching likely unnecessary
@@ -183,15 +177,9 @@ class Image(BaseModel):
                         media_type=media_type,
                         data=data,
                     )
-            raise MultimodalError(
-                f"Unsupported image type: {img_type}",
-                content_type="image",
-            )
+            raise ValueError(f"Unsupported image type: {img_type}")
         except Exception as e:
-            raise MultimodalError(
-                "Invalid or unsupported base64 image data",
-                content_type="image",
-            ) from e
+            raise ValueError(f"Invalid or unsupported base64 image data") from e
 
     @classmethod
     @lru_cache
@@ -209,16 +197,10 @@ class Image(BaseModel):
                 response = requests.head(url, allow_redirects=True)
                 media_type = response.headers.get("Content-Type")
             except requests.RequestException as e:
-                raise MultimodalError(
-                    "Failed to fetch image from URL",
-                    content_type="image",
-                ) from e
+                raise ValueError(f"Failed to fetch image from URL") from e
 
         if media_type not in VALID_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported image format: {media_type}",
-                content_type="image",
-            )
+            raise ValueError(f"Unsupported image format: {media_type}")
         return cls(source=url, media_type=media_type, data=None)
 
     @classmethod
@@ -229,18 +211,11 @@ class Image(BaseModel):
             raise FileNotFoundError(f"Image file not found: {path}")
 
         if path.stat().st_size == 0:
-            raise MultimodalError(
-                "Image file is empty",
-                content_type="image",
-                file_path=str(path),
-            )
+            raise ValueError("Image file is empty")
 
         media_type, _ = mimetypes.guess_type(str(path))
         if media_type not in VALID_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported image format: {media_type}",
-                content_type="image",
-            )
+            raise ValueError(f"Unsupported image format: {media_type}")
 
         data = base64.b64encode(path.read_bytes()).decode("utf-8")
         return cls(source=path, media_type=media_type, data=data)
@@ -299,10 +274,7 @@ class Image(BaseModel):
                     "image_url": {"url": f"data:{self.media_type};base64,{data}"},
                 }
         else:
-            raise MultimodalError(
-                "Image data is missing for base64 encoding.",
-                content_type="image",
-            )
+            raise ValueError("Image data is missing for base64 encoding.")
 
     def to_genai(self):
         """
@@ -338,10 +310,7 @@ class Image(BaseModel):
             )  # type: ignore
 
         else:
-            raise MultimodalError(
-                "Image data is missing for base64 encoding.",
-                content_type="image",
-            )
+            raise ValueError("Image data is missing for base64 encoding.")
 
 
 class Audio(BaseModel):
@@ -372,10 +341,7 @@ class Audio(BaseModel):
             except OSError:
                 pass  # Fall through to error
 
-            raise MultimodalError(
-                "Unable to determine audio source",
-                content_type="audio",
-            )
+            raise ValueError("Unable to determine audio source")
 
         if isinstance(source, Path):
             return cls.from_path(source)
@@ -392,7 +358,7 @@ class Audio(BaseModel):
         """
         try:
             return cls.autodetect(source)
-        except (ValueError, MultimodalError):
+        except ValueError:
             return str(source)
 
     @classmethod
@@ -404,10 +370,7 @@ class Audio(BaseModel):
         header, encoded = data_uri.split(",", 1)
         media_type = header.split(":")[1].split(";")[0]
         if media_type not in VALID_AUDIO_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported audio format: {media_type}",
-                content_type="audio",
-            )
+            raise ValueError(f"Unsupported audio format: {media_type}")
         return cls(
             source=data_uri,
             media_type=media_type,
@@ -461,10 +424,7 @@ class Audio(BaseModel):
             timeout: Request timeout in seconds (default: 30)
         """
         if not data_uri.startswith("gs://"):
-            raise MultimodalError(
-                "URL must start with gs://",
-                content_type="audio",
-            )
+            raise ValueError("URL must start with gs://")
 
         public_url = f"https://storage.googleapis.com/{data_uri[5:]}"
 
@@ -473,27 +433,20 @@ class Audio(BaseModel):
             response.raise_for_status()
             media_type = response.headers.get("Content-Type")
             if media_type not in VALID_AUDIO_MIME_TYPES:
-                raise MultimodalError(
-                    f"Unsupported audio format: {media_type}",
-                    content_type="audio",
-                )
+                raise ValueError(f"Unsupported audio format: {media_type}")
 
             data = base64.b64encode(response.content).decode("utf-8")
 
             return cls(source=data_uri, media_type=media_type, data=data)
         except requests.RequestException as e:
-            raise MultimodalError(
-                "Failed to access GCS audio (must be publicly readable)",
-                content_type="audio",
+            raise ValueError(
+                "Failed to access GCS audio (must be publicly readable)"
             ) from e
 
     def to_openai(self, mode: Mode) -> dict[str, Any]:
         """Convert the Audio instance to OpenAI's API format."""
         if mode in {Mode.RESPONSES_TOOLS, Mode.RESPONSES_TOOLS_WITH_INBUILT_TOOLS}:
-            raise MultimodalError(
-                "OpenAI Responses doesn't support audio",
-                content_type="audio",
-            )
+            raise ValueError("OpenAI Responses doesn't support audio")
 
         return {
             "type": "input_audio",
@@ -610,7 +563,7 @@ class PDF(BaseModel):
         """
         try:
             return cls.autodetect(source)
-        except (ValueError, MultimodalError):
+        except ValueError:
             return str(source)
 
     @classmethod
@@ -622,10 +575,7 @@ class PDF(BaseModel):
         header, encoded = data_uri.split(",", 1)
         media_type = header.split(":")[1].split(";")[0]
         if media_type not in VALID_PDF_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported PDF format: {media_type}",
-                content_type="pdf",
-            )
+            raise ValueError(f"Unsupported PDF format: {media_type}")
         return cls(
             source=data_uri,
             media_type=media_type,
@@ -640,18 +590,11 @@ class PDF(BaseModel):
             raise FileNotFoundError(f"PDF file not found: {path}")
 
         if path.stat().st_size == 0:
-            raise MultimodalError(
-                "PDF file is empty",
-                content_type="pdf",
-                file_path=str(path),
-            )
+            raise ValueError("PDF file is empty")
 
         media_type, _ = mimetypes.guess_type(str(path))
         if media_type not in VALID_PDF_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported PDF format: {media_type}",
-                content_type="pdf",
-            )
+            raise ValueError(f"Unsupported PDF format: {media_type}")
 
         data = base64.b64encode(path.read_bytes()).decode("utf-8")
         return cls(source=path, media_type=media_type, data=data)
@@ -667,15 +610,9 @@ class PDF(BaseModel):
                     media_type="application/pdf",
                     data=data,
                 )
-            raise MultimodalError(
-                "Invalid PDF format",
-                content_type="pdf",
-            )
+            raise ValueError("Invalid PDF format")
         except Exception as e:
-            raise MultimodalError(
-                "Invalid or unsupported base64 PDF data",
-                content_type="pdf",
-            ) from e
+            raise ValueError("Invalid or unsupported base64 PDF data") from e
 
     @classmethod
     def from_gs_url(cls, data_uri: str, timeout: int = 30) -> PDF:
@@ -687,10 +624,7 @@ class PDF(BaseModel):
             timeout: Request timeout in seconds (default: 30)
         """
         if not data_uri.startswith("gs://"):
-            raise MultimodalError(
-                "URL must start with gs://",
-                content_type="pdf",
-            )
+            raise ValueError("URL must start with gs://")
 
         public_url = f"https://storage.googleapis.com/{data_uri[5:]}"
 
@@ -699,18 +633,14 @@ class PDF(BaseModel):
             response.raise_for_status()
             media_type = response.headers.get("Content-Type", "application/pdf")
             if media_type not in VALID_PDF_MIME_TYPES:
-                raise MultimodalError(
-                    f"Unsupported PDF format: {media_type}",
-                    content_type="pdf",
-                )
+                raise ValueError(f"Unsupported PDF format: {media_type}")
 
             data = base64.b64encode(response.content).decode("utf-8")
 
             return cls(source=data_uri, media_type=media_type, data=data)
         except requests.RequestException as e:
-            raise MultimodalError(
-                "Failed to access GCS PDF (must be publicly readable)",
-                content_type="pdf",
+            raise ValueError(
+                "Failed to access GCS PDF (must be publicly readable)"
             ) from e
 
     @classmethod
@@ -726,16 +656,10 @@ class PDF(BaseModel):
                 response = requests.head(url, allow_redirects=True)
                 media_type = response.headers.get("Content-Type")
             except requests.RequestException as e:
-                raise MultimodalError(
-                    "Failed to fetch PDF from URL",
-                    content_type="pdf",
-                ) from e
+                raise ValueError("Failed to fetch PDF from URL") from e
 
         if media_type not in VALID_PDF_MIME_TYPES:
-            raise MultimodalError(
-                f"Unsupported PDF format: {media_type}",
-                content_type="pdf",
-            )
+            raise ValueError(f"Unsupported PDF format: {media_type}")
         return cls(source=url, media_type=media_type, data=None)
 
     def to_mistral(self) -> dict[str, Any]:
@@ -748,10 +672,7 @@ class PDF(BaseModel):
                 "type": "document_url",
                 "document_url": self.source,
             }
-        raise MultimodalError(
-            "Mistral only supports document URLs for now",
-            content_type="pdf",
-        )
+        raise ValueError("Mistral only supports document URLs for now")
 
     def to_openai(self, mode: Mode) -> dict[str, Any]:
         """Convert to OpenAI's document format."""
@@ -808,10 +729,7 @@ class PDF(BaseModel):
                     },
                 }
         else:
-            raise MultimodalError(
-                "PDF data is missing for base64 encoding.",
-                content_type="pdf",
-            )
+            raise ValueError("PDF data is missing for base64 encoding.")
 
     def to_anthropic(self) -> dict[str, Any]:
         """Convert to Anthropic's document format."""
@@ -868,10 +786,7 @@ class PDF(BaseModel):
                 mime_type=self.media_type,
             )
 
-        raise MultimodalError(
-            "Unsupported PDF format",
-            content_type="pdf",
-        )
+        raise ValueError("Unsupported PDF format")
 
 
 class PDFWithCacheControl(PDF):
@@ -924,10 +839,7 @@ class PDFWithGenaiFile(PDF):
                 data=None,
             )
         else:
-            raise MultimodalError(
-                "We only support uploaded PDFs for now",
-                content_type="pdf",
-            )
+            raise ValueError("We only support uploaded PDFs for now")
 
     def to_genai(self):
         try:
