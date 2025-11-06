@@ -149,3 +149,125 @@ class AsyncValidationError(ValueError, InstructorError):
     """Exception raised during async validation."""
 
     errors: list[ValueError]
+
+
+class ResponseParsingError(ValueError, InstructorError):
+    """Exception raised when unable to parse the LLM response.
+
+    This exception occurs when the LLM's raw response cannot be parsed
+    into the expected format. Common scenarios include:
+    - Malformed JSON in JSON mode
+    - Missing required fields in the response
+    - Unexpected response structure
+    - Invalid tool call format
+
+    Note: This exception inherits from both ValueError and InstructorError
+    to maintain backwards compatibility with code that catches ValueError.
+
+    Attributes:
+        mode: The mode being used when parsing failed
+        raw_response: The raw response that failed to parse (if available)
+
+    Examples:
+        ```python
+        try:
+            response = client.chat.completions.create(
+                response_model=User,
+                mode=instructor.Mode.JSON,
+                ...
+            )
+        except ResponseParsingError as e:
+            print(f"Failed to parse response in {e.mode} mode")
+            print(f"Raw response: {e.raw_response}")
+            # May indicate the model doesn't support this mode well
+        ```
+
+        Backwards compatible with ValueError:
+        ```python
+        try:
+            response = client.chat.completions.create(...)
+        except ValueError as e:
+            # Still catches ResponseParsingError
+            print(f"Parsing error: {e}")
+        ```
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *args: Any,
+        mode: str | None = None,
+        raw_response: Any | None = None,
+        **kwargs: Any,
+    ):
+        self.mode = mode
+        self.raw_response = raw_response
+        context = f" (mode: {mode})" if mode else ""
+        super().__init__(f"{message}{context}", *args, **kwargs)
+
+
+class MultimodalError(ValueError, InstructorError):
+    """Exception raised for multimodal content processing errors.
+
+    This exception is raised when there are issues processing multimodal
+    content (images, audio, PDFs, etc.), such as:
+    - Unsupported file formats
+    - File not found
+    - Invalid base64 encoding
+    - Provider doesn't support multimodal content
+
+    Note: This exception inherits from both ValueError and InstructorError
+    to maintain backwards compatibility with code that catches ValueError.
+
+    Attributes:
+        content_type: The type of content that failed (e.g., 'image', 'audio', 'pdf')
+        file_path: The file path if applicable
+
+    Examples:
+        ```python
+        from instructor import Image
+
+        try:
+            response = client.chat.completions.create(
+                response_model=Analysis,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Analyze this image"},
+                        Image.from_path("/invalid/path.jpg")
+                    ]
+                }]
+            )
+        except MultimodalError as e:
+            print(f"Multimodal error with {e.content_type}: {e}")
+            if e.file_path:
+                print(f"File path: {e.file_path}")
+        ```
+
+        Backwards compatible with ValueError:
+        ```python
+        try:
+            img = Image.from_path("/path/to/image.jpg")
+        except ValueError as e:
+            # Still catches MultimodalError
+            print(f"Image error: {e}")
+        ```
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *args: Any,
+        content_type: str | None = None,
+        file_path: str | None = None,
+        **kwargs: Any,
+    ):
+        self.content_type = content_type
+        self.file_path = file_path
+        context_parts = []
+        if content_type:
+            context_parts.append(f"content_type: {content_type}")
+        if file_path:
+            context_parts.append(f"file_path: {file_path}")
+        context = f" ({', '.join(context_parts)})" if context_parts else ""
+        super().__init__(f"{message}{context}", *args, **kwargs)

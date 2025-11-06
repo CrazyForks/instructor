@@ -11,6 +11,8 @@ from .exceptions import (
     ModeError,
     ClientError,
     AsyncValidationError,
+    ResponseParsingError,
+    MultimodalError,
 )
 from .hooks import Hooks, HookName
 from .patch import patch, apatch
@@ -29,6 +31,8 @@ __all__ = [
     "ModeError",
     "ClientError",
     "AsyncValidationError",
+    "ResponseParsingError",
+    "MultimodalError",
     "Hooks",
     "HookName",
     "patch",
