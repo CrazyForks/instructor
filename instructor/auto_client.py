@@ -410,7 +410,9 @@ def from_provider(
             if api_key:
                 client = Mistral(api_key=api_key)
             else:
-                raise ValueError(
+                from .core.exceptions import ConfigurationError
+
+                raise ConfigurationError(
                     "MISTRAL_API_KEY is not set. "
                     "Set it with `export MISTRAL_API_KEY=<your-api-key>`."
                 )
@@ -484,7 +486,9 @@ def from_provider(
 
             api_key = api_key or os.environ.get("PERPLEXITY_API_KEY")
             if not api_key:
-                raise ValueError(
+                from .core.exceptions import ConfigurationError
+
+                raise ConfigurationError(
                     "PERPLEXITY_API_KEY is not set. "
                     "Set it with `export PERPLEXITY_API_KEY=<your-api-key>` or pass it as a kwarg api_key=<your-api-key>"
                 )
@@ -748,7 +752,9 @@ def from_provider(
             )
 
             if not project:
-                raise ValueError(
+                from .core.exceptions import ConfigurationError
+
+                raise ConfigurationError(
                     "Project ID is required for Vertex AI. "
                     "Set it with `export GOOGLE_CLOUD_PROJECT=<your-project-id>` "
                     "or pass it as kwarg project=<your-project-id>"

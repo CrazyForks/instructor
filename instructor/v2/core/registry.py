@@ -186,7 +186,9 @@ class ModeRegistry:
         elif handler_type == "response":
             return handlers.response_parser
         else:
-            raise ValueError(
+            from ..core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
                 f"Invalid handler_type: {handler_type}. "
                 f"Must be 'request', 'reask', or 'response'"
             )

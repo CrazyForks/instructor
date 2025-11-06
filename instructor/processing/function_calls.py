@@ -238,7 +238,9 @@ class OpenAISchema(BaseModel):
         }:
             return cls.parse_json(completion, validation_context, strict)
 
-        raise ValueError(f"Invalid patch mode: {mode}")
+        from ..core.exceptions import ConfigurationError
+
+        raise ConfigurationError(f"Invalid patch mode: {mode}")
 
     @classmethod
     def parse_genai_structured_outputs(
