@@ -17,8 +17,8 @@ from tenacity import (
     stop_after_attempt,
 )
 
+from instructor import Mode, Provider
 from instructor.core.exceptions import InstructorRetryException
-from instructor.v2.core.mode_types import ModeType, Provider
 from instructor.v2.core.registry import mode_registry
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ def retry_sync_v2(
     func: Callable[..., Any],
     response_model: type[T_Model] | None,
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
     context: dict[str, Any] | None,
     max_retries: int | Retrying,
     args: tuple[Any, ...],
@@ -49,7 +49,7 @@ def retry_sync_v2(
         func: API function to call
         response_model: Pydantic model to extract
         provider: Provider enum
-        mode_type: ModeType enum
+        mode: Mode enum
         context: Validation context
         max_retries: Max retry attempts or Retrying instance
         args: Positional args for func
@@ -68,8 +68,7 @@ def retry_sync_v2(
         return func(*args, **kwargs)
 
     # Get handlers from registry
-    response_parser = mode_registry.get_handler(provider, mode_type, "response")
-    reask_handler = mode_registry.get_handler(provider, mode_type, "reask")
+    handlers = mode_registry.get_handlers(provider, mode)
 
     # Setup retrying
     if isinstance(max_retries, int):
@@ -98,7 +97,7 @@ def retry_sync_v2(
 
                 # Parse response using registry
                 try:
-                    parsed = response_parser(
+                    parsed = handlers.response_parser(
                         response=response,
                         response_model=response_model,
                         validation_context=context,
@@ -121,7 +120,7 @@ def retry_sync_v2(
                         hooks.emit_parse_error(e)
 
                     # Prepare reask using registry
-                    kwargs = reask_handler(
+                    kwargs = handlers.reask_handler(
                         kwargs=kwargs,
                         response=response,
                         exception=e,
@@ -152,7 +151,7 @@ async def retry_async_v2(
     func: Callable[..., Awaitable[Any]],
     response_model: type[T_Model] | None,
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
     context: dict[str, Any] | None,
     max_retries: int | AsyncRetrying,
     args: tuple[Any, ...],
@@ -166,7 +165,7 @@ async def retry_async_v2(
         func: Async API function to call
         response_model: Pydantic model to extract
         provider: Provider enum
-        mode_type: ModeType enum
+        mode: Mode enum
         context: Validation context
         max_retries: Max retry attempts or AsyncRetrying instance
         args: Positional args for func
@@ -185,8 +184,7 @@ async def retry_async_v2(
         return await func(*args, **kwargs)
 
     # Get handlers from registry
-    response_parser = mode_registry.get_handler(provider, mode_type, "response")
-    reask_handler = mode_registry.get_handler(provider, mode_type, "reask")
+    handlers = mode_registry.get_handlers(provider, mode)
 
     # Setup retrying
     if isinstance(max_retries, int):
@@ -215,7 +213,7 @@ async def retry_async_v2(
 
                 # Parse response using registry
                 try:
-                    parsed = response_parser(
+                    parsed = handlers.response_parser(
                         response=response,
                         response_model=response_model,
                         validation_context=context,
@@ -238,7 +236,7 @@ async def retry_async_v2(
                         hooks.emit_parse_error(e)
 
                     # Prepare reask using registry
-                    kwargs = reask_handler(
+                    kwargs = handlers.reask_handler(
                         kwargs=kwargs,
                         response=response,
                         exception=e,

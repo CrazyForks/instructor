@@ -9,8 +9,7 @@ from typing import Any, overload
 
 import anthropic
 
-from instructor import AsyncInstructor, Instructor
-from instructor.v2.core import ModeType, Provider
+from instructor import AsyncInstructor, Instructor, Mode, Provider
 from instructor.v2.core.patch import patch_v2
 
 # Ensure handlers are registered (decorators auto-register on import)
@@ -22,7 +21,7 @@ def from_anthropic(
     client: (
         anthropic.Anthropic | anthropic.AnthropicBedrock | anthropic.AnthropicVertex
     ),
-    mode_type: ModeType = ModeType.TOOLS,
+    mode: Mode = Mode.TOOLS,
     beta: bool = False,
     model: str | None = None,
     **kwargs: Any,
@@ -36,7 +35,7 @@ def from_anthropic(
         | anthropic.AsyncAnthropicBedrock
         | anthropic.AsyncAnthropicVertex
     ),
-    mode_type: ModeType = ModeType.TOOLS,
+    mode: Mode = Mode.TOOLS,
     beta: bool = False,
     model: str | None = None,
     **kwargs: Any,
@@ -52,48 +51,46 @@ def from_anthropic(
         | anthropic.AsyncAnthropicVertex
         | anthropic.AnthropicVertex
     ),
-    mode_type: ModeType = ModeType.TOOLS,
+    mode: Mode = Mode.TOOLS,
     beta: bool = False,
     model: str | None = None,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     """Create an Instructor instance from an Anthropic client using v2 registry.
 
-    v2 uses hierarchical (Provider, ModeType) design instead of flat Mode enum:
-        - from_anthropic(client, ModeType.TOOLS)  # v2
-        - from_anthropic(client, Mode.ANTHROPIC_TOOLS)  # v1
-
     Args:
         client: An instance of Anthropic client (sync or async)
-        mode_type: The mode type to use (TOOLS or JSON)
+        mode: The mode to use (defaults to Mode.TOOLS)
         beta: Whether to use beta API features (uses client.beta.messages.create)
+        model: Optional model to inject if not provided in requests
         **kwargs: Additional keyword arguments to pass to the Instructor constructor
 
     Returns:
         An Instructor instance (sync or async depending on the client type)
 
     Raises:
-        ValueError: If mode_type is not registered
+        ValueError: If mode is not registered
         TypeError: If client is not a valid Anthropic client instance
 
     Examples:
         >>> import anthropic
-        >>> from instructor.v2 import from_anthropic, ModeType
+        >>> from instructor import Mode
+        >>> from instructor.v2.providers.anthropic import from_anthropic
         >>>
         >>> client = anthropic.Anthropic()
-        >>> instructor_client = from_anthropic(client, ModeType.TOOLS)
+        >>> instructor_client = from_anthropic(client, mode=Mode.TOOLS)
         >>>
         >>> # Or use JSON mode
-        >>> instructor_client = from_anthropic(client, ModeType.JSON)
+        >>> instructor_client = from_anthropic(client, mode=Mode.JSON)
     """
     from instructor.v2.core.registry import mode_registry
 
-    # Validate mode_type is registered
-    if not mode_registry.is_registered(Provider.ANTHROPIC, mode_type):
+    # Validate mode is registered
+    if not mode_registry.is_registered(mode):
         available_modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
         raise ValueError(
-            f"ModeType.{mode_type.name} is not registered for Anthropic. "
-            f"Available modes: {[f'ModeType.{m.name}' for m in available_modes]}"
+            f"Mode.{mode.name} is not registered for Anthropic. "
+            f"Available modes: {[f'Mode.{m.name}' for m in available_modes]}"
         )
 
     # Validate client type
@@ -122,7 +119,7 @@ def from_anthropic(
     patched_create = patch_v2(
         func=create,
         provider=Provider.ANTHROPIC,
-        mode_type=mode_type,
+        mode=mode,
         default_model=model,
     )
 
@@ -135,7 +132,7 @@ def from_anthropic(
             client=client,
             create=patched_create,
             provider=Provider.ANTHROPIC,
-            mode=(Provider.ANTHROPIC, mode_type),  # v2 uses tuple
+            mode=mode,
             **kwargs,
         )
     else:
@@ -143,6 +140,6 @@ def from_anthropic(
             client=client,
             create=patched_create,
             provider=Provider.ANTHROPIC,
-            mode=(Provider.ANTHROPIC, mode_type),  # v2 uses tuple
+            mode=mode,
             **kwargs,
         )

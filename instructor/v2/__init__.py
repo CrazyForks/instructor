@@ -1,24 +1,23 @@
-"""Instructor v2 - Hierarchical mode registry system.
+"""Instructor v2 - Mode registry system.
 
-v2 introduces a hierarchical (Provider, ModeType) design instead of flat mode enums:
+v2 uses a registry system that maps Mode enum values directly to handlers.
+This replaces the hardcoded dictionaries in v1 with a dynamic, extensible system.
 
-Before (v1):
+Usage:
     from instructor import Mode
-    mode = Mode.ANTHROPIC_TOOLS  # Flat enum, 42 total
+    from instructor.v2 import from_anthropic
 
-After (v2):
-    from instructor.v2 import Provider, ModeType
-    mode = (Provider.ANTHROPIC, ModeType.TOOLS)  # Composable, 21 enums define all combinations
+    client = from_anthropic(anthropic_client, mode=Mode.ANTHROPIC_TOOLS)
 
 Benefits:
-- Composable: 15 providers × 6 mode types = any combination
-- Queryable: Filter by provider OR mode type
-- Extensible: Add provider = support all mode types automatically
-- Provider-agnostic: Write code using ModeType.TOOLS across any provider
+- Dynamic registration: Modes register themselves via decorators
+- Lazy loading: Handlers loaded only when used
+- Extensible: Easy to add new modes without modifying core
+- Type-safe: Protocols ensure handler compatibility
 """
 
+from instructor import Mode, Provider
 from instructor.v2.core.handler import ModeHandler
-from instructor.v2.core.mode_types import Mode, ModeType, Provider
 from instructor.v2.core.protocols import ReaskHandler, RequestHandler, ResponseParser
 from instructor.v2.core.registry import ModeHandlers, ModeRegistry, mode_registry
 
@@ -31,7 +30,6 @@ except ImportError:
 __all__ = [
     # Core types
     "Provider",
-    "ModeType",
     "Mode",
     # Registry
     "mode_registry",

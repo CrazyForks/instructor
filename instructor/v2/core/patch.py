@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
 
+from instructor import Mode, Provider
 from instructor.core.hooks import Hooks
 from instructor.templating import handle_templating
 from instructor.utils import is_async
-from instructor.v2.core.mode_types import ModeType, Provider
 from instructor.v2.core.registry import mode_registry
 from instructor.v2.core.retry import retry_async_v2, retry_sync_v2
 
@@ -64,7 +64,7 @@ def handle_context(
 def patch_v2(
     func: Callable[..., Any],
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
     default_model: str | None = None,
 ) -> Callable[..., T_Model]:
     """Patch a function to use v2 registry for structured outputs.
@@ -72,35 +72,33 @@ def patch_v2(
     Args:
         func: Function to patch (e.g., client.messages.create)
         provider: Provider enum value
-        mode_type: Mode type enum value
+        mode: Mode enum value
         default_model: Default model to inject if not provided in request
 
     Returns:
         Patched function that supports response_model parameter
     """
-    logger.debug(
-        f"Patching with v2 registry: {provider=}, {mode_type=}, {default_model=}"
-    )
+    logger.debug(f"Patching with v2 registry: {provider=}, {mode=}, {default_model=}")
 
     # Check if handlers are registered
-    if not mode_registry.is_registered(provider, mode_type):
+    if not mode_registry.is_registered(provider, mode):
         raise ValueError(
-            f"Mode ({provider}, {mode_type}) is not registered. "
+            f"Mode {mode} is not registered for provider {provider}. "
             f"Available modes: {mode_registry.list_modes()}"
         )
 
     func_is_async = is_async(func)
 
     if func_is_async:
-        return _create_async_wrapper(func, provider, mode_type, default_model)
+        return _create_async_wrapper(func, provider, mode, default_model)
     else:
-        return _create_sync_wrapper(func, provider, mode_type, default_model)
+        return _create_sync_wrapper(func, provider, mode, default_model)
 
 
 def _create_sync_wrapper(
     func: Callable[..., Any],
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
     default_model: str | None = None,
 ) -> Callable[..., T_Model]:
     """Create synchronous wrapper for patched function."""
@@ -123,18 +121,18 @@ def _create_sync_wrapper(
         if default_model is not None and "model" not in kwargs:
             kwargs["model"] = default_model
 
-        # Get request handler from registry
-        request_handler = mode_registry.get_handler(provider, mode_type, "request")
+        # Get handlers from registry
+        handlers = mode_registry.get_handlers(provider, mode)
 
         # Prepare request kwargs using registry handler
-        response_model, new_kwargs = request_handler(
+        response_model, new_kwargs = handlers.request_handler(
             response_model=response_model, kwargs=kwargs
         )
 
         # Handle templating
         new_kwargs = handle_templating(
             new_kwargs,
-            mode=(provider, mode_type),  # Pass as tuple
+            mode=mode,
             context=context,
         )
 
@@ -143,7 +141,7 @@ def _create_sync_wrapper(
             func=func,
             response_model=response_model,
             provider=provider,
-            mode_type=mode_type,
+            mode=mode,
             context=context,
             max_retries=max_retries,
             args=args,
@@ -160,7 +158,7 @@ def _create_sync_wrapper(
 def _create_async_wrapper(
     func: Callable[..., Awaitable[Any]],
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
     default_model: str | None = None,
 ) -> Callable[..., Awaitable[T_Model]]:
     """Create asynchronous wrapper for patched function."""
@@ -183,18 +181,18 @@ def _create_async_wrapper(
         if default_model is not None and "model" not in kwargs:
             kwargs["model"] = default_model
 
-        # Get request handler from registry
-        request_handler = mode_registry.get_handler(provider, mode_type, "request")
+        # Get handlers from registry
+        handlers = mode_registry.get_handlers(provider, mode)
 
         # Prepare request kwargs using registry handler
-        response_model, new_kwargs = request_handler(
+        response_model, new_kwargs = handlers.request_handler(
             response_model=response_model, kwargs=kwargs
         )
 
         # Handle templating
         new_kwargs = handle_templating(
             new_kwargs,
-            mode=(provider, mode_type),  # Pass as tuple
+            mode=mode,
             context=context,
         )
 
@@ -203,7 +201,7 @@ def _create_async_wrapper(
             func=func,
             response_model=response_model,
             provider=provider,
-            mode_type=mode_type,
+            mode=mode,
             context=context,
             max_retries=max_retries,
             args=args,

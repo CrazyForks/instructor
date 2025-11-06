@@ -276,7 +276,7 @@ def from_provider(
 
             # Convert v1 Mode to v2 ModeType if needed
             # Default to TOOLS mode
-            mode_type = ModeType.TOOLS
+            mode_type = Mode.TOOLS
             if mode is not None:
                 # Map v1 modes to v2 mode types with deprecation warnings
                 if mode == instructor.Mode.ANTHROPIC_TOOLS:
@@ -287,7 +287,7 @@ def from_provider(
                         DeprecationWarning,
                         stacklevel=2,
                     )
-                    mode_type = ModeType.TOOLS
+                    mode_type = Mode.TOOLS
                 elif mode == instructor.Mode.ANTHROPIC_JSON:
                     warnings.warn(
                         "Mode.ANTHROPIC_JSON is deprecated. Use ModeType.JSON from instructor.v2 instead:\n"

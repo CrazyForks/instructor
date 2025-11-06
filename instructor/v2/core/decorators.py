@@ -1,12 +1,12 @@
 """Decorator utilities for v2 mode registration."""
 
-from instructor.v2.core.mode_types import ModeType, Provider
+from instructor import Mode, Provider
 from instructor.v2.core.registry import mode_registry
 
 
 def register_mode_handler(
     provider: Provider,
-    mode_type: ModeType,
+    mode: Mode,
 ):
     """Decorator to register a mode handler class.
 
@@ -15,14 +15,15 @@ def register_mode_handler(
     and parse_response methods.
 
     Args:
-        provider: Provider enum value
-        mode_type: Mode type enum value
+        provider: Provider enum value (for tracking)
+        mode: Mode enum value
 
     Returns:
         Decorator function
 
     Example:
-        >>> @register_mode_handler(Provider.ANTHROPIC, ModeType.TOOLS)
+        >>> from instructor import Mode
+        >>> @register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_TOOLS)
         ... class AnthropicToolsHandler:
         ...     def prepare_request(self, response_model, kwargs):
         ...         return response_model, kwargs
@@ -39,8 +40,8 @@ def register_mode_handler(
 
         # Register with the registry
         mode_registry.register(
+            mode=mode,
             provider=provider,
-            mode_type=mode_type,
             request_handler=handler.prepare_request,
             reask_handler=handler.handle_reask,
             response_parser=handler.parse_response,

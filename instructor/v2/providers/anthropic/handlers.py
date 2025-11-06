@@ -17,6 +17,7 @@ from typing import Annotated
 if TYPE_CHECKING:
     from anthropic.types import Message
 
+from instructor import Mode, Provider
 from instructor.core.exceptions import IncompleteOutputException
 from instructor.processing.function_calls import extract_json_from_codeblock
 from instructor.processing.multimodal import Image, Audio, PDF
@@ -27,7 +28,6 @@ from instructor.providers.anthropic.utils import (
 )
 from instructor.v2.core.decorators import register_mode_handler
 from instructor.v2.core.handler import ModeHandler
-from instructor.v2.core.mode_types import ModeType, Provider
 
 
 def serialize_message_content(content: Any) -> Any:
@@ -177,7 +177,7 @@ def process_messages_for_anthropic(
     return processed
 
 
-@register_mode_handler(Provider.ANTHROPIC, ModeType.TOOLS)
+@register_mode_handler(Provider.ANTHROPIC, Mode.TOOLS)
 class AnthropicToolsHandler(ModeHandler):
     """Handler for Anthropic TOOLS mode.
 
@@ -340,7 +340,7 @@ class AnthropicToolsHandler(ModeHandler):
         return parsed
 
 
-@register_mode_handler(Provider.ANTHROPIC, ModeType.JSON)
+@register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
 class AnthropicJSONHandler(ModeHandler):
     """Handler for Anthropic JSON mode.
 
