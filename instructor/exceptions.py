@@ -21,14 +21,11 @@ from .core.exceptions import (
     AsyncValidationError,
     ClientError,
     ConfigurationError,
-    FailedAttempt,
     IncompleteOutputException,
     InstructorError,
     InstructorRetryException,
     ModeError,
-    MultimodalError,
     ProviderError,
-    ResponseParsingError,
     ValidationError,
 )
 
@@ -36,13 +33,10 @@ __all__ = [
     "AsyncValidationError",
     "ClientError",
     "ConfigurationError",
-    "FailedAttempt",
     "IncompleteOutputException",
     "InstructorError",
     "InstructorRetryException",
     "ModeError",
-    "MultimodalError",
     "ProviderError",
-    "ResponseParsingError",
     "ValidationError",
 ]
