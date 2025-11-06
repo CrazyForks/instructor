@@ -201,9 +201,21 @@ class OpenAISchema(BaseModel):
         if not completion.choices:
             # This helps catch errors from OpenRouter
             if hasattr(completion, "error"):
-                raise ValueError(completion.error)
+                from ..core.exceptions import ResponseParsingError
 
-            raise ValueError("No completion choices found")
+                raise ResponseParsingError(
+                    str(completion.error),
+                    mode=str(mode),
+                    raw_response=completion,
+                )
+
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
+                "No completion choices found",
+                mode=str(mode),
+                raw_response=completion,
+            )
 
         if completion.choices[0].finish_reason == "length":
             raise IncompleteOutputException(last_completion=completion)
@@ -313,13 +325,29 @@ class OpenAISchema(BaseModel):
                         break
 
                 if text is None:
-                    raise ValueError("Cohere V2 response has no text content item")
+                    from ..core.exceptions import ResponseParsingError
+
+                    raise ResponseParsingError(
+                        "Cohere V2 response has no text content item",
+                        mode="JSON",
+                        raw_response=completion,
+                    )
             else:
-                raise ValueError("Cohere V2 response has no content")
+                from ..core.exceptions import ResponseParsingError
+
+                raise ResponseParsingError(
+                    "Cohere V2 response has no content",
+                    mode="JSON",
+                    raw_response=completion,
+                )
         else:
-            raise ValueError(
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
                 f"Unsupported Cohere response format. Expected 'text' (V1) or "
-                f"'message.content[].text' (V2), got: {type(completion)}"
+                f"'message.content[].text' (V2), got: {type(completion)}",
+                mode="JSON",
+                raw_response=completion,
             )
 
         return cls.model_validate_json(text, context=validation_context, strict=strict)
@@ -408,7 +436,13 @@ class OpenAISchema(BaseModel):
             content = completion["output"]["message"]["content"]
             text_content = next((c for c in content if "text" in c), None)
             if not text_content:
-                raise ValueError("Unexpected format. No text content found.")
+                from ..core.exceptions import ResponseParsingError
+
+                raise ResponseParsingError(
+                    "Unexpected format. No text content found.",
+                    mode="JSON",
+                    raw_response=completion,
+                )
             text = text_content["text"]
             match = re.search(r"```?json(.*?)```?", text, re.DOTALL)
             if match:
@@ -444,7 +478,13 @@ class OpenAISchema(BaseModel):
                         strict=strict,
                     )
 
-            raise ValueError("No tool use found in Bedrock response")
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
+                "No tool use found in Bedrock response",
+                mode="TOOLS",
+                raw_response=completion,
+            )
         else:
             # Fallback for other response formats
             return cls.model_validate_json(
@@ -468,7 +508,13 @@ class OpenAISchema(BaseModel):
         try:
             extra_text = extract_json_from_codeblock(text)  # type: ignore
         except UnboundLocalError:
-            raise ValueError("Unable to extract JSON from completion text") from None
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
+                "Unable to extract JSON from completion text",
+                mode="JSON",
+                raw_response=completion,
+            ) from None
 
         if strict:
             return cls.model_validate_json(
@@ -568,13 +614,29 @@ class OpenAISchema(BaseModel):
                         break
 
                 if text is None:
-                    raise ValueError("Cohere V2 response has no text content item")
+                    from ..core.exceptions import ResponseParsingError
+
+                    raise ResponseParsingError(
+                        "Cohere V2 response has no text content item",
+                        mode="TOOLS",
+                        raw_response=completion,
+                    )
             else:
-                raise ValueError("Cohere V2 response has no content")
+                from ..core.exceptions import ResponseParsingError
+
+                raise ResponseParsingError(
+                    "Cohere V2 response has no content",
+                    mode="TOOLS",
+                    raw_response=completion,
+                )
         else:
-            raise ValueError(
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
                 f"Unsupported Cohere response format. Expected tool_calls or text content. "
-                f"Got: {type(completion)}"
+                f"Got: {type(completion)}",
+                mode="TOOLS",
+                raw_response=completion,
             )
 
         # Extract JSON from text (for prompt-based approach)
@@ -658,8 +720,12 @@ class OpenAISchema(BaseModel):
                     tool_call_message = message
                     break
         if not tool_call_message:
-            raise ValueError(
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
                 f"You must call {cls.openai_schema['name']} in your response",
+                mode="TOOLS",
+                raw_response=completion,
             )
 
         return cls.model_validate_json(
@@ -704,8 +770,12 @@ class OpenAISchema(BaseModel):
         strict: Optional[bool] = None,
     ) -> BaseModel:
         if not completion.choices or len(completion.choices) > 1:
-            raise ValueError(
-                "Instructor does not support multiple tool calls, use list[Model] instead"
+            from ..core.exceptions import ResponseParsingError
+
+            raise ResponseParsingError(
+                "Instructor does not support multiple tool calls, use list[Model] instead",
+                mode="MISTRAL_STRUCTURED_OUTPUTS",
+                raw_response=completion,
             )
 
         message = completion.choices[0].message
