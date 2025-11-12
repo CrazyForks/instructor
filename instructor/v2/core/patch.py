@@ -15,6 +15,7 @@ from instructor import Mode, Provider
 from instructor.core.hooks import Hooks
 from instructor.templating import handle_templating
 from instructor.utils import is_async
+from instructor.v2.core.exceptions import RegistryValidationMixin
 from instructor.v2.core.registry import mode_registry
 from instructor.v2.core.retry import retry_async_v2, retry_sync_v2
 
@@ -42,25 +43,11 @@ def handle_context(
         Merged context dict or None
 
     Raises:
-        ValueError: If both parameters are provided
+        ValidationContextError: If both parameters are provided
     """
-    if context is not None and validation_context is not None:
-        from instructor.core.exceptions import ConfigurationError
-
-        raise ConfigurationError(
-            "Cannot provide both 'context' and 'validation_context'. "
-            "Use 'context' instead."
-        )
-    if validation_context is not None and context is None:
-        import warnings
-
-        warnings.warn(
-            "'validation_context' is deprecated. Use 'context' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        context = validation_context
-    return context
+    return RegistryValidationMixin.validate_context_parameters(
+        context, validation_context
+    )
 
 
 def patch_v2(
@@ -79,24 +66,21 @@ def patch_v2(
 
     Returns:
         Patched function that supports response_model parameter
+
+    Raises:
+        RegistryError: If mode is not registered for provider
     """
     logger.debug(f"Patching with v2 registry: {provider=}, {mode=}, {default_model=}")
 
-    # Check if handlers are registered
-    if not mode_registry.is_registered(provider, mode):
-        from instructor.core.exceptions import ConfigurationError
-
-        raise ConfigurationError(
-            f"Mode {mode} is not registered for provider {provider}. "
-            f"Available modes: {mode_registry.list_modes()}"
-        )
+    # Validate mode registration
+    RegistryValidationMixin.validate_mode_registration(provider, mode)
 
     func_is_async = is_async(func)
 
     if func_is_async:
-        return _create_async_wrapper(func, provider, mode, default_model)
+        return _create_async_wrapper(func, provider, mode, default_model)  # type: ignore[return-value]
     else:
-        return _create_sync_wrapper(func, provider, mode, default_model)
+        return _create_sync_wrapper(func, provider, mode, default_model)  # type: ignore[return-value]
 
 
 def _create_sync_wrapper(

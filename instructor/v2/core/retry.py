@@ -20,6 +20,7 @@ from tenacity import (
 from instructor import Mode, Provider
 from instructor.core.exceptions import FailedAttempt, InstructorRetryException
 from instructor.core.retry import extract_messages
+from instructor.v2.core.exceptions import RegistryValidationMixin
 from instructor.v2.core.registry import mode_registry
 
 if TYPE_CHECKING:
@@ -68,7 +69,8 @@ def retry_sync_v2(
         # No structured output, just call the API
         return func(*args, **kwargs)
 
-    # Get handlers from registry
+    # Validate and get handlers from registry
+    RegistryValidationMixin.validate_mode_registration(provider, mode)
     handlers = mode_registry.get_handlers(provider, mode)
 
     # Setup retrying
@@ -82,7 +84,7 @@ def retry_sync_v2(
         max_retries_instance = max_retries
 
     failed_attempts: list[FailedAttempt] = []
-    last_exception = None
+    last_exception: Exception | None = None
     total_usage = 0
 
     try:
@@ -92,7 +94,14 @@ def retry_sync_v2(
                 if hooks:
                     hooks.emit_completion_arguments(**kwargs)
 
-                response = func(*args, **kwargs)
+                try:
+                    response = func(*args, **kwargs)
+                except Exception as e:
+                    logger.error(
+                        f"API call failed on attempt "
+                        f"{attempt.retry_state.attempt_number}: {e}"
+                    )
+                    raise
 
                 if hooks:
                     hooks.emit_completion_response(response)
@@ -105,12 +114,15 @@ def retry_sync_v2(
                         validation_context=context,
                         strict=strict,
                     )
-
+                    logger.debug(
+                        f"Successfully parsed response on attempt "
+                        f"{attempt.retry_state.attempt_number}"
+                    )
                     return parsed  # type: ignore
 
                 except ValidationError as e:
-                    logger.debug(f"Validation error: {e}")
                     attempt_number = attempt.retry_state.attempt_number
+                    logger.debug(f"Validation error on attempt {attempt_number}: {e}")
                     failed_attempts.append(
                         FailedAttempt(
                             attempt_number=attempt_number,
@@ -134,9 +146,15 @@ def retry_sync_v2(
                     raise
 
     except Exception as e:
-        # Max retries exceeded
+        # Max retries exceeded or non-validation error occurred
         if last_exception is None:
             last_exception = e
+
+        logger.error(
+            f"Max retries exceeded. Total attempts: {len(failed_attempts)}, "
+            f"Last error: {last_exception}"
+        )
+
         raise InstructorRetryException(
             str(last_exception),
             last_completion=failed_attempts[-1].completion if failed_attempts else None,
@@ -148,6 +166,7 @@ def retry_sync_v2(
         ) from last_exception
 
     # Should never reach here
+    logger.error("Unexpected code path in retry_sync_v2")
     raise InstructorRetryException(
         str(last_exception) if last_exception else "Unknown error",
         last_completion=failed_attempts[-1].completion if failed_attempts else None,
@@ -195,7 +214,8 @@ async def retry_async_v2(
         # No structured output, just call the API
         return await func(*args, **kwargs)
 
-    # Get handlers from registry
+    # Validate and get handlers from registry
+    RegistryValidationMixin.validate_mode_registration(provider, mode)
     handlers = mode_registry.get_handlers(provider, mode)
 
     # Setup retrying
@@ -209,7 +229,7 @@ async def retry_async_v2(
         max_retries_instance = max_retries
 
     failed_attempts: list[FailedAttempt] = []
-    last_exception = None
+    last_exception: Exception | None = None
     total_usage = 0
 
     try:
@@ -219,7 +239,14 @@ async def retry_async_v2(
                 if hooks:
                     hooks.emit_completion_arguments(**kwargs)
 
-                response = await func(*args, **kwargs)
+                try:
+                    response = await func(*args, **kwargs)
+                except Exception as e:
+                    logger.error(
+                        f"API call failed on attempt "
+                        f"{attempt.retry_state.attempt_number}: {e}"
+                    )
+                    raise
 
                 if hooks:
                     hooks.emit_completion_response(response)
@@ -232,12 +259,15 @@ async def retry_async_v2(
                         validation_context=context,
                         strict=strict,
                     )
-
+                    logger.debug(
+                        f"Successfully parsed response on attempt "
+                        f"{attempt.retry_state.attempt_number}"
+                    )
                     return parsed  # type: ignore
 
                 except ValidationError as e:
-                    logger.debug(f"Validation error: {e}")
                     attempt_number = attempt.retry_state.attempt_number
+                    logger.debug(f"Validation error on attempt {attempt_number}: {e}")
                     failed_attempts.append(
                         FailedAttempt(
                             attempt_number=attempt_number,
@@ -261,9 +291,15 @@ async def retry_async_v2(
                     raise
 
     except Exception as e:
-        # Max retries exceeded
+        # Max retries exceeded or non-validation error occurred
         if last_exception is None:
             last_exception = e
+
+        logger.error(
+            f"Max retries exceeded. Total attempts: {len(failed_attempts)}, "
+            f"Last error: {last_exception}"
+        )
+
         raise InstructorRetryException(
             str(last_exception),
             last_completion=failed_attempts[-1].completion if failed_attempts else None,
@@ -275,6 +311,7 @@ async def retry_async_v2(
         ) from last_exception
 
     # Should never reach here
+    logger.error("Unexpected code path in retry_async_v2")
     raise InstructorRetryException(
         str(last_exception) if last_exception else "Unknown error",
         last_completion=failed_attempts[-1].completion if failed_attempts else None,
