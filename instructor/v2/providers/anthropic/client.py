@@ -86,7 +86,7 @@ def from_anthropic(
     from instructor.v2.core.registry import mode_registry
 
     # Validate mode is registered
-    if not mode_registry.is_registered(mode):
+    if not mode_registry.is_registered(Provider.ANTHROPIC, mode):
         available_modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
         raise ValueError(
             f"Mode.{mode.name} is not registered for Anthropic. "
