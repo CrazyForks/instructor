@@ -191,7 +191,12 @@ class AnthropicToolsHandler(ModeHandler):
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         """Prepare request kwargs for TOOLS mode.
 
-        Supports both regular tool use and extended thinking/reasoning.
+        Supports:
+        - Regular single tool use (single model)
+        - Parallel tool calling (Iterable[Union[Model1, Model2, ...]])
+        - Extended thinking/reasoning (with thinking parameter)
+
+        Automatically detects parallel mode from Iterable[Union[...]] response models.
         If thinking is enabled, automatically adjusts tool_choice to "auto"
         (required by API constraint).
 
@@ -202,6 +207,9 @@ class AnthropicToolsHandler(ModeHandler):
         Returns:
             Tuple of (response_model, modified_kwargs)
         """
+        from collections.abc import Iterable
+        from typing import get_origin
+
         new_kwargs = kwargs.copy()
 
         # Extract and combine system messages BEFORE serializing message content
@@ -227,11 +235,24 @@ class AnthropicToolsHandler(ModeHandler):
             # Just return with processed messages and extracted system
             return None, new_kwargs
 
-        # Generate tool schema
-        tool_descriptions = generate_anthropic_schema(response_model)
-        new_kwargs["tools"] = [tool_descriptions]
+        # Detect if this is a parallel tools request (Iterable[Union[...]])
+        is_parallel = False
+        if get_origin(response_model) is Iterable:
+            is_parallel = True
 
-        # Determine tool_choice based on reasoning/thinking mode
+        # Generate tool schema(s)
+        if is_parallel:
+            # Parallel mode: multiple tools from union
+            from instructor.dsl.parallel import handle_anthropic_parallel_model
+
+            tool_schemas = handle_anthropic_parallel_model(response_model)
+            new_kwargs["tools"] = tool_schemas
+        else:
+            # Single tool mode
+            tool_descriptions = generate_anthropic_schema(response_model)
+            new_kwargs["tools"] = [tool_descriptions]
+
+        # Determine tool_choice based on reasoning/thinking mode or parallel mode
         # Only override if user hasn't explicitly set it
         if "tool_choice" not in new_kwargs:
             # Check if extended thinking/reasoning is enabled
@@ -241,21 +262,23 @@ class AnthropicToolsHandler(ModeHandler):
                 and new_kwargs.get("thinking", {}).get("type") == "enabled"
             )
 
-            if thinking_enabled:
-                # Extended thinking mode: use auto tool choice (required by API)
+            if thinking_enabled or is_parallel:
+                # Extended thinking or parallel mode: use auto tool choice
+                # (required by API for both cases)
                 new_kwargs["tool_choice"] = {"type": "auto"}
-                # Add system guidance to encourage tool use with reasoning
-                new_kwargs["system"] = combine_system_messages(
-                    new_kwargs.get("system"),
-                    [
-                        {
-                            "type": "text",
-                            "text": "Return only the tool call and no additional text.",
-                        }
-                    ],
-                )
+                # Add system guidance for thinking mode
+                if thinking_enabled:
+                    new_kwargs["system"] = combine_system_messages(
+                        new_kwargs.get("system"),
+                        [
+                            {
+                                "type": "text",
+                                "text": "Return only the tool call and no additional text.",
+                            }
+                        ],
+                    )
             else:
-                # Regular mode: force tool use
+                # Regular single tool mode: force tool use
                 new_kwargs["tool_choice"] = {
                     "type": "tool",
                     "name": response_model.__name__,
@@ -335,11 +358,13 @@ class AnthropicToolsHandler(ModeHandler):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
-    ) -> BaseModel:
+    ) -> BaseModel | Any:
         """Parse TOOLS mode response.
 
-        Handles both regular tool use and extended thinking responses.
-        Filters out thinking blocks and extracts tool calls.
+        Handles:
+        - Single tool use (returns single model instance)
+        - Parallel tool use (returns generator of model instances)
+        - Extended thinking responses (filters out thinking blocks)
 
         Args:
             response: Anthropic API response
@@ -348,36 +373,53 @@ class AnthropicToolsHandler(ModeHandler):
             strict: Optional strict validation mode
 
         Returns:
-            Validated Pydantic model instance
+            Validated Pydantic model instance or generator of instances for parallel
 
         Raises:
             IncompleteOutputException: If response hit max_tokens
             ValidationError: If response doesn't match model
         """
         from anthropic.types import Message
+        from collections.abc import Iterable
+        from typing import get_origin
 
         if isinstance(response, Message) and response.stop_reason == "max_tokens":
             raise IncompleteOutputException(last_completion=response)
 
-        # Extract tool calls (filter out thinking blocks and other non-tool content)
-        tool_calls = [
-            json.dumps(c.input) for c in response.content if c.type == "tool_use"
-        ]
+        # Check if this is a parallel response (Iterable[Union[...]])
+        is_parallel = get_origin(response_model) is Iterable
 
-        # Validate exactly one tool call
-        tool_calls_validator = TypeAdapter(
-            Annotated[list[Any], Field(min_length=1, max_length=1)]
-        )
-        tool_call = tool_calls_validator.validate_python(tool_calls)[0]
+        if is_parallel:
+            # Parallel mode: extract and yield multiple tool calls
+            from instructor.dsl.parallel import AnthropicParallelModel
 
-        parsed = response_model.model_validate_json(
-            tool_call, context=validation_context, strict=strict
-        )
+            parallel_wrapper = AnthropicParallelModel(typehint=response_model)
+            return parallel_wrapper.from_response(
+                response,
+                mode=None,  # Not needed for v2
+                validation_context=validation_context,
+                strict=strict,
+            )
+        else:
+            # Single tool mode: extract exactly one tool call
+            tool_calls = [
+                json.dumps(c.input) for c in response.content if c.type == "tool_use"
+            ]
 
-        # Attach raw response for access via create_with_completion
-        parsed._raw_response = response  # type: ignore
+            # Validate exactly one tool call
+            tool_calls_validator = TypeAdapter(
+                Annotated[list[Any], Field(min_length=1, max_length=1)]
+            )
+            tool_call = tool_calls_validator.validate_python(tool_calls)[0]
 
-        return parsed
+            parsed = response_model.model_validate_json(
+                tool_call, context=validation_context, strict=strict
+            )
+
+            # Attach raw response for access via create_with_completion
+            parsed._raw_response = response  # type: ignore
+
+            return parsed
 
 
 @register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS)
