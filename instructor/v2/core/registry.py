@@ -68,7 +68,7 @@ class ModeRegistry:
         Raises:
             ConfigurationError: If mode is already registered
         """
-        from ..core.exceptions import ConfigurationError
+        from instructor.core.exceptions import ConfigurationError
 
         mode = (provider, mode)
         if mode in self._handlers:
@@ -98,7 +98,7 @@ class ModeRegistry:
         Raises:
             ConfigurationError: If mode is already registered
         """
-        from ..core.exceptions import ConfigurationError
+        from instructor.core.exceptions import ConfigurationError
 
         mode = (provider, mode)
         if mode in self._handlers or mode in self._lazy_loaders:
@@ -143,7 +143,7 @@ class ModeRegistry:
             self._handlers[mode] = handlers
             return handlers
 
-        from ..core.exceptions import ConfigurationError
+        from instructor.core.exceptions import ConfigurationError
 
         raise ConfigurationError(
             f"Mode {mode} is not registered. "
@@ -192,7 +192,7 @@ class ModeRegistry:
         elif handler_type == "response":
             return handlers.response_parser
         else:
-            from ..core.exceptions import ConfigurationError
+            from instructor.core.exceptions import ConfigurationError
 
             raise ConfigurationError(
                 f"Invalid handler_type: {handler_type}. "

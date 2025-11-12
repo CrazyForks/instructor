@@ -45,7 +45,7 @@ def handle_context(
         ValueError: If both parameters are provided
     """
     if context is not None and validation_context is not None:
-        from ..core.exceptions import ConfigurationError
+        from instructor.core.exceptions import ConfigurationError
 
         raise ConfigurationError(
             "Cannot provide both 'context' and 'validation_context'. "
@@ -84,7 +84,7 @@ def patch_v2(
 
     # Check if handlers are registered
     if not mode_registry.is_registered(provider, mode):
-        from ..core.exceptions import ConfigurationError
+        from instructor.core.exceptions import ConfigurationError
 
         raise ConfigurationError(
             f"Mode {mode} is not registered for provider {provider}. "

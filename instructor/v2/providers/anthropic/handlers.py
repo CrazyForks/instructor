@@ -191,6 +191,10 @@ class AnthropicToolsHandler(ModeHandler):
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         """Prepare request kwargs for TOOLS mode.
 
+        Supports both regular tool use and extended thinking/reasoning.
+        If thinking is enabled, automatically adjusts tool_choice to "auto"
+        (required by API constraint).
+
         Args:
             response_model: Pydantic model to extract (or None)
             kwargs: Original request kwargs
@@ -226,10 +230,36 @@ class AnthropicToolsHandler(ModeHandler):
         # Generate tool schema
         tool_descriptions = generate_anthropic_schema(response_model)
         new_kwargs["tools"] = [tool_descriptions]
-        new_kwargs["tool_choice"] = {
-            "type": "tool",
-            "name": response_model.__name__,
-        }
+
+        # Determine tool_choice based on reasoning/thinking mode
+        # Only override if user hasn't explicitly set it
+        if "tool_choice" not in new_kwargs:
+            # Check if extended thinking/reasoning is enabled
+            thinking_enabled = (
+                "thinking" in new_kwargs
+                and isinstance(new_kwargs.get("thinking"), dict)
+                and new_kwargs.get("thinking", {}).get("type") == "enabled"
+            )
+
+            if thinking_enabled:
+                # Extended thinking mode: use auto tool choice (required by API)
+                new_kwargs["tool_choice"] = {"type": "auto"}
+                # Add system guidance to encourage tool use with reasoning
+                new_kwargs["system"] = combine_system_messages(
+                    new_kwargs.get("system"),
+                    [
+                        {
+                            "type": "text",
+                            "text": "Return only the tool call and no additional text.",
+                        }
+                    ],
+                )
+            else:
+                # Regular mode: force tool use
+                new_kwargs["tool_choice"] = {
+                    "type": "tool",
+                    "name": response_model.__name__,
+                }
 
         return response_model, new_kwargs
 
@@ -308,6 +338,9 @@ class AnthropicToolsHandler(ModeHandler):
     ) -> BaseModel:
         """Parse TOOLS mode response.
 
+        Handles both regular tool use and extended thinking responses.
+        Filters out thinking blocks and extracts tool calls.
+
         Args:
             response: Anthropic API response
             response_model: Pydantic model to validate against
@@ -326,7 +359,7 @@ class AnthropicToolsHandler(ModeHandler):
         if isinstance(response, Message) and response.stop_reason == "max_tokens":
             raise IncompleteOutputException(last_completion=response)
 
-        # Extract tool calls
+        # Extract tool calls (filter out thinking blocks and other non-tool content)
         tool_calls = [
             json.dumps(c.input) for c in response.content if c.type == "tool_use"
         ]
@@ -345,6 +378,37 @@ class AnthropicToolsHandler(ModeHandler):
         parsed._raw_response = response  # type: ignore
 
         return parsed
+
+
+@register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS)
+class AnthropicReasoningToolsHandler(AnthropicToolsHandler):
+    """Handler for ANTHROPIC_REASONING_TOOLS mode (deprecated).
+
+    This mode is deprecated in favor of using ANTHROPIC_TOOLS with the
+    'thinking' parameter for extended thinking support.
+
+    Delegates to AnthropicToolsHandler which now automatically handles
+    reasoning/thinking via the 'thinking' parameter.
+    """
+
+    def prepare_request(
+        self,
+        response_model: type[BaseModel] | None,
+        kwargs: dict[str, Any],
+    ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
+        """Prepare request, showing deprecation warning.
+
+        Args:
+            response_model: Pydantic model to extract (or None)
+            kwargs: Original request kwargs
+
+        Returns:
+            Tuple of (response_model, modified_kwargs)
+        """
+        # Show deprecation warning
+        Mode.warn_anthropic_reasoning_tools_deprecation()
+        # Delegate to parent handler
+        return super().prepare_request(response_model, kwargs)
 
 
 @register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
