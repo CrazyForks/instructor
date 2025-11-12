@@ -92,12 +92,8 @@ def test_query_anthropic_modes():
 
     assert Mode.TOOLS in modes
     assert Mode.JSON in modes
-<<<<<<< HEAD
     assert Mode.ANTHROPIC_REASONING_TOOLS in modes
     assert len(modes) == 3  # TOOLS, JSON, and ANTHROPIC_REASONING_TOOLS
-=======
-    assert len(modes) == 2  # Only TOOLS and JSON for now
->>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
 
 def test_query_tools_providers():
@@ -105,7 +101,6 @@ def test_query_tools_providers():
     providers = mode_registry.get_providers_for_mode(Mode.TOOLS)
 
     assert Provider.ANTHROPIC in providers
-<<<<<<< HEAD
 
 
 def test_anthropic_reasoning_tools_mode_registered():
@@ -202,5 +197,3 @@ def test_tools_mode_respects_user_tool_choice():
 
     # Should respect user's tool_choice
     assert result["tool_choice"]["type"] == "auto"
-=======
->>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
