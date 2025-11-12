@@ -40,7 +40,11 @@ def test_from_provider_anthropic_async():
 
 
 def test_old_from_anthropic_deprecation_warning():
+<<<<<<< HEAD
     """Test that old from_anthropic() emits deprecation warning with correct v2 example."""
+=======
+    """Test that old from_anthropic() emits deprecation warning."""
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
     import anthropic
     from instructor import from_anthropic
 
@@ -55,10 +59,13 @@ def test_old_from_anthropic_deprecation_warning():
         assert issubclass(w[0].category, DeprecationWarning)
         assert "deprecated" in str(w[0].message).lower()
         assert "v2" in str(w[0].message)
+<<<<<<< HEAD
         # Verify the warning shows correct v2 Mode enum (TOOLS not ANTHROPIC_TOOLS)
         assert "Mode.TOOLS" in str(w[0].message)
         # Verify it mentions the correct v2 import path
         assert "instructor.v2.providers.anthropic" in str(w[0].message)
+=======
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
 
 @pytest.mark.skip(reason="Requires Anthropic API key")

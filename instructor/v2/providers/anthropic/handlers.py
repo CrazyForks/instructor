@@ -191,6 +191,7 @@ class AnthropicToolsHandler(ModeHandler):
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         """Prepare request kwargs for TOOLS mode.
 
+<<<<<<< HEAD
         Supports:
         - Regular single tool use (single model)
         - Parallel tool calling (Iterable[Union[Model1, Model2, ...]])
@@ -200,6 +201,8 @@ class AnthropicToolsHandler(ModeHandler):
         If thinking is enabled, automatically adjusts tool_choice to "auto"
         (required by API constraint).
 
+=======
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
         Args:
             response_model: Pydantic model to extract (or None)
             kwargs: Original request kwargs
@@ -207,9 +210,12 @@ class AnthropicToolsHandler(ModeHandler):
         Returns:
             Tuple of (response_model, modified_kwargs)
         """
+<<<<<<< HEAD
         from collections.abc import Iterable
         from typing import get_origin
 
+=======
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
         new_kwargs = kwargs.copy()
 
         # Extract and combine system messages BEFORE serializing message content
@@ -235,6 +241,7 @@ class AnthropicToolsHandler(ModeHandler):
             # Just return with processed messages and extracted system
             return None, new_kwargs
 
+<<<<<<< HEAD
         # Detect if this is a parallel tools request (Iterable[Union[...]])
         is_parallel = False
         if get_origin(response_model) is Iterable:
@@ -283,6 +290,15 @@ class AnthropicToolsHandler(ModeHandler):
                     "type": "tool",
                     "name": response_model.__name__,
                 }
+=======
+        # Generate tool schema
+        tool_descriptions = generate_anthropic_schema(response_model)
+        new_kwargs["tools"] = [tool_descriptions]
+        new_kwargs["tool_choice"] = {
+            "type": "tool",
+            "name": response_model.__name__,
+        }
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
         return response_model, new_kwargs
 
@@ -358,6 +374,7 @@ class AnthropicToolsHandler(ModeHandler):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
+<<<<<<< HEAD
     ) -> BaseModel | Any:
         """Parse TOOLS mode response.
 
@@ -366,6 +383,11 @@ class AnthropicToolsHandler(ModeHandler):
         - Parallel tool use (returns generator of model instances)
         - Extended thinking responses (filters out thinking blocks)
 
+=======
+    ) -> BaseModel:
+        """Parse TOOLS mode response.
+
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
         Args:
             response: Anthropic API response
             response_model: Pydantic model to validate against
@@ -373,19 +395,27 @@ class AnthropicToolsHandler(ModeHandler):
             strict: Optional strict validation mode
 
         Returns:
+<<<<<<< HEAD
             Validated Pydantic model instance or generator of instances for parallel
+=======
+            Validated Pydantic model instance
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
         Raises:
             IncompleteOutputException: If response hit max_tokens
             ValidationError: If response doesn't match model
         """
         from anthropic.types import Message
+<<<<<<< HEAD
         from collections.abc import Iterable
         from typing import get_origin
+=======
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
         if isinstance(response, Message) and response.stop_reason == "max_tokens":
             raise IncompleteOutputException(last_completion=response)
 
+<<<<<<< HEAD
         # Check if this is a parallel response (Iterable[Union[...]])
         is_parallel = get_origin(response_model) is Iterable
 
@@ -463,6 +493,27 @@ class AnthropicReasoningToolsHandler(AnthropicToolsHandler):
         Mode.warn_anthropic_reasoning_tools_deprecation()
         # Delegate to parent handler
         return super().prepare_request(response_model, kwargs)
+=======
+        # Extract tool calls
+        tool_calls = [
+            json.dumps(c.input) for c in response.content if c.type == "tool_use"
+        ]
+
+        # Validate exactly one tool call
+        tool_calls_validator = TypeAdapter(
+            Annotated[list[Any], Field(min_length=1, max_length=1)]
+        )
+        tool_call = tool_calls_validator.validate_python(tool_calls)[0]
+
+        parsed = response_model.model_validate_json(
+            tool_call, context=validation_context, strict=strict
+        )
+
+        # Attach raw response for access via create_with_completion
+        parsed._raw_response = response  # type: ignore
+
+        return parsed
+>>>>>>> 13857221 (feat(v2/anthropic): implement provider with mode registry integration)
 
 
 @register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
