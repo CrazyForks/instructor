@@ -114,6 +114,11 @@ print(user)
 
 ### Parallel Tool Calling
 
+Parallel tool mode is automatically detected when your response model is `Iterable[Union[Model1, Model2, ...]]`. Just use `Mode.TOOLS` (or let it default) and the handler will automatically:
+- Set tool_choice to "auto" (required for parallel)
+- Generate schemas for all union members
+- Return a generator yielding each tool result
+
 ```python
 from typing import Iterable, Literal
 from pydantic import BaseModel
@@ -129,9 +134,10 @@ class GoogleSearch(BaseModel):
     query: str
 
 
+# No need to specify Mode.PARALLEL_TOOLS - it's auto-detected!
 client = instructor.from_provider(
-    "anthropic/claude-4-5-haiku-latest",
-    mode=instructor.Mode.PARALLEL_TOOLS,
+    "anthropic/claude-3-5-haiku-latest",
+    mode=instructor.Mode.TOOLS,  # or just omit and use default
 )
 
 results = client.chat.completions.create(
@@ -142,12 +148,18 @@ results = client.chat.completions.create(
             "content": "What is the weather in toronto and dallas and who won the super bowl?",
         },
     ],
-    response_model=Iterable[Weather | GoogleSearch],
+    response_model=Iterable[Weather | GoogleSearch],  # Auto-detects parallel mode
 )
 
 for item in results:
     print(item)
 ```
+
+**How it works**: When Instructor detects `Iterable[Union[...]]`, it automatically:
+1. Sets `tool_choice` to `"auto"` (allows model to call any tool)
+2. Generates tool schemas from all union members
+3. Returns a generator that yields each extracted tool call
+4. Each yielded item is validated against its corresponding Pydantic model
 
 ## Multimodal
 
@@ -435,10 +447,21 @@ except Exception as e:
 We provide several modes to make it easy to work with the different response models that Anthropic supports
 
 1. `instructor.Mode.JSON` : This uses the text completion API from the Anthropic API and then extracts out the desired response model from the text completion model
-2. `instructor.Mode.TOOLS` : This uses Anthropic's [tools calling API](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) to return structured outputs to the client
-3. `instructor.Mode.PARALLEL_TOOLS` : Runs multiple tools in parallel and returns a list of tool calls
+2. `instructor.Mode.TOOLS` : This uses Anthropic's [tools calling API](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) to return structured outputs. Automatically detects parallel tools from `Iterable[Union[...]]` response models.
+3. `instructor.Mode.PARALLEL_TOOLS` : **Deprecated** - Use `Mode.TOOLS` with `Iterable[Union[Model1, Model2, ...]]` instead. Auto-detected automatically.
 
-In general, we recommend using `Mode.TOOLS` because it's the best way to ensure you have the desired response schema that you want.
+### Mode Auto-Detection
+
+`Mode.TOOLS` now intelligently adapts based on your response model and parameters:
+
+| Response Model | Parameters | Behavior |
+|---|---|---|
+| `Model` | Regular | Single tool (forced) |
+| `Model` | `thinking={...}` | Single tool with extended thinking (auto) |
+| `Iterable[Union[Model1, Model2]]` | Regular | Parallel tools (auto) |
+| `Iterable[Union[Model1, Model2]]` | `thinking={...}` | Parallel with thinking |
+
+In general, we recommend using `Mode.TOOLS` because it automatically handles all these cases and is the best way to ensure you have the desired response schema.
 
 ## Caching
 
