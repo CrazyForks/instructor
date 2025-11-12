@@ -18,7 +18,8 @@ from tenacity import (
 )
 
 from instructor import Mode, Provider
-from instructor.core.exceptions import InstructorRetryException
+from instructor.core.exceptions import FailedAttempt, InstructorRetryException
+from instructor.core.retry import extract_messages
 from instructor.v2.core.registry import mode_registry
 
 if TYPE_CHECKING:
@@ -80,8 +81,9 @@ def retry_sync_v2(
     else:
         max_retries_instance = max_retries
 
-    attempts = []
+    failed_attempts: list[FailedAttempt] = []
     last_exception = None
+    total_usage = 0
 
     try:
         for attempt in max_retries_instance:
@@ -108,11 +110,13 @@ def retry_sync_v2(
 
                 except ValidationError as e:
                     logger.debug(f"Validation error: {e}")
-                    attempts.append(
-                        {
-                            "exception": str(e),
-                            "completion": response,
-                        }
+                    attempt_number = attempt.retry_state.attempt_number
+                    failed_attempts.append(
+                        FailedAttempt(
+                            attempt_number=attempt_number,
+                            exception=e,
+                            completion=response,
+                        )
                     )
                     last_exception = e
 
@@ -131,19 +135,27 @@ def retry_sync_v2(
 
     except Exception as e:
         # Max retries exceeded
+        if last_exception is None:
+            last_exception = e
         raise InstructorRetryException(
-            n_attempts=len(attempts),
-            messages=[a.get("exception") for a in attempts],
-            last_completion=attempts[-1].get("completion") if attempts else None,
-            total_usage=None,
-        ) from last_exception or e
+            str(last_exception),
+            last_completion=failed_attempts[-1].completion if failed_attempts else None,
+            n_attempts=len(failed_attempts),
+            total_usage=total_usage,
+            messages=extract_messages(kwargs),
+            create_kwargs=kwargs,
+            failed_attempts=failed_attempts,
+        ) from last_exception
 
     # Should never reach here
     raise InstructorRetryException(
-        n_attempts=len(attempts),
-        messages=[a.get("exception") for a in attempts],
-        last_completion=attempts[-1].get("completion") if attempts else None,
-        total_usage=None,
+        str(last_exception) if last_exception else "Unknown error",
+        last_completion=failed_attempts[-1].completion if failed_attempts else None,
+        n_attempts=len(failed_attempts),
+        total_usage=total_usage,
+        messages=extract_messages(kwargs),
+        create_kwargs=kwargs,
+        failed_attempts=failed_attempts,
     )
 
 
@@ -196,8 +208,9 @@ async def retry_async_v2(
     else:
         max_retries_instance = max_retries
 
-    attempts = []
+    failed_attempts: list[FailedAttempt] = []
     last_exception = None
+    total_usage = 0
 
     try:
         async for attempt in max_retries_instance:
@@ -224,11 +237,13 @@ async def retry_async_v2(
 
                 except ValidationError as e:
                     logger.debug(f"Validation error: {e}")
-                    attempts.append(
-                        {
-                            "exception": str(e),
-                            "completion": response,
-                        }
+                    attempt_number = attempt.retry_state.attempt_number
+                    failed_attempts.append(
+                        FailedAttempt(
+                            attempt_number=attempt_number,
+                            exception=e,
+                            completion=response,
+                        )
                     )
                     last_exception = e
 
@@ -247,17 +262,25 @@ async def retry_async_v2(
 
     except Exception as e:
         # Max retries exceeded
+        if last_exception is None:
+            last_exception = e
         raise InstructorRetryException(
-            n_attempts=len(attempts),
-            messages=[a.get("exception") for a in attempts],
-            last_completion=attempts[-1].get("completion") if attempts else None,
-            total_usage=None,
-        ) from last_exception or e
+            str(last_exception),
+            last_completion=failed_attempts[-1].completion if failed_attempts else None,
+            n_attempts=len(failed_attempts),
+            total_usage=total_usage,
+            messages=extract_messages(kwargs),
+            create_kwargs=kwargs,
+            failed_attempts=failed_attempts,
+        ) from last_exception
 
     # Should never reach here
     raise InstructorRetryException(
-        n_attempts=len(attempts),
-        messages=[a.get("exception") for a in attempts],
-        last_completion=attempts[-1].get("completion") if attempts else None,
-        total_usage=None,
+        str(last_exception) if last_exception else "Unknown error",
+        last_completion=failed_attempts[-1].completion if failed_attempts else None,
+        n_attempts=len(failed_attempts),
+        total_usage=total_usage,
+        messages=extract_messages(kwargs),
+        create_kwargs=kwargs,
+        failed_attempts=failed_attempts,
     )
