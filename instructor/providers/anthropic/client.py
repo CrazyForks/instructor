@@ -47,7 +47,7 @@ def from_anthropic(
 
     .. deprecated::
         from_anthropic() is deprecated and will be removed in v2.0.
-        Use instructor.v2.from_anthropic() with ModeType instead, or use
+        Use instructor.v2.from_anthropic() with Mode instead, or use
         instructor.from_provider("anthropic/model-name") which automatically
         routes to the v2 implementation.
 
@@ -68,9 +68,10 @@ def from_anthropic(
 
     warnings.warn(
         "from_anthropic() is deprecated and will be removed in v2.0. "
-        "Use instructor.v2.from_anthropic() with ModeType instead:\n"
-        "  from instructor.v2 import from_anthropic, ModeType\n"
-        "  client = from_anthropic(anthropic_client, ModeType.TOOLS)\n"
+        "Use instructor.v2.from_anthropic() with Mode instead:\n"
+        "  from instructor.v2 import from_anthropic\n"
+        "  from instructor import Mode\n"
+        "  client = from_anthropic(anthropic_client, Mode.ANTHROPIC_TOOLS)\n"
         "Or use from_provider() which automatically routes to v2:\n"
         "  client = instructor.from_provider('anthropic/claude-3-sonnet')",
         DeprecationWarning,
