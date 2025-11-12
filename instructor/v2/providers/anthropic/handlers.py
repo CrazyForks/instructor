@@ -252,7 +252,14 @@ class AnthropicToolsHandler(ModeHandler):
         kwargs = kwargs.copy()
         from anthropic.types import Message
 
-        assert isinstance(response, Message), "Response must be a Anthropic Message"
+        from instructor.core.exceptions import ResponseParsingError
+
+        if not isinstance(response, Message):
+            raise ResponseParsingError(
+                "Response must be an Anthropic Message",
+                mode="ANTHROPIC_TOOLS",
+                raw_response=response,
+            )
 
         # Extract assistant's response
         assistant_content = []
@@ -423,7 +430,14 @@ class AnthropicJSONHandler(ModeHandler):
         kwargs = kwargs.copy()
         from anthropic.types import Message
 
-        assert isinstance(response, Message), "Response must be a Anthropic Message"
+        from instructor.core.exceptions import ResponseParsingError
+
+        if not isinstance(response, Message):
+            raise ResponseParsingError(
+                "Response must be an Anthropic Message",
+                mode="JSON",
+                raw_response=response,
+            )
 
         # Filter for text blocks to handle ThinkingBlock and other non-text content
         text_blocks = [c for c in response.content if c.type == "text"]
@@ -471,7 +485,14 @@ class AnthropicJSONHandler(ModeHandler):
                 raise IncompleteOutputException(last_completion=completion)
             text = completion.message.content
         else:
-            assert isinstance(response, Message)
+            from instructor.core.exceptions import ResponseParsingError
+
+            if not isinstance(response, Message):
+                raise ResponseParsingError(
+                    "Response must be an Anthropic Message",
+                    mode="JSON",
+                    raw_response=response,
+                )
             if response.stop_reason == "max_tokens":
                 raise IncompleteOutputException(last_completion=response)
 
