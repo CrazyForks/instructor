@@ -92,7 +92,8 @@ def test_query_anthropic_modes():
 
     assert Mode.TOOLS in modes
     assert Mode.JSON in modes
-    assert len(modes) == 2  # Only TOOLS and JSON for now
+    assert Mode.ANTHROPIC_REASONING_TOOLS in modes
+    assert len(modes) == 3  # TOOLS, JSON, and ANTHROPIC_REASONING_TOOLS
 
 
 def test_query_tools_providers():
@@ -100,3 +101,99 @@ def test_query_tools_providers():
     providers = mode_registry.get_providers_for_mode(Mode.TOOLS)
 
     assert Provider.ANTHROPIC in providers
+
+
+def test_anthropic_reasoning_tools_mode_registered():
+    """Verify Anthropic REASONING_TOOLS mode is registered and deprecated."""
+    assert mode_registry.is_registered(
+        Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
+    )
+
+    handlers = mode_registry.get_handlers(
+        Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
+    )
+    assert handlers.request_handler is not None
+    assert handlers.reask_handler is not None
+    assert handlers.response_parser is not None
+
+
+def test_anthropic_reasoning_tools_deprecation_warning():
+    """Verify deprecation warning is shown for REASONING_TOOLS mode."""
+    import warnings
+
+    # The deprecation warning should be triggered when accessing the handler
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        # Access via handler will trigger the prepare_request which shows warning
+        handlers = mode_registry.get_handlers(
+            Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
+        )
+        # Create a dummy prepare_request call to trigger the deprecation warning
+        from instructor.v2.providers.anthropic.handlers import (
+            AnthropicReasoningToolsHandler,
+        )
+
+        handler = AnthropicReasoningToolsHandler()
+        handler.prepare_request(User, {"messages": []})
+
+        # Verify deprecation warning was issued
+        assert len(w) >= 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "ANTHROPIC_REASONING_TOOLS is deprecated" in str(w[0].message)
+
+
+def test_tools_mode_with_thinking_parameter():
+    """Verify TOOLS mode handles thinking parameter for extended thinking."""
+    from instructor.v2.providers.anthropic.handlers import AnthropicToolsHandler
+
+    handler = AnthropicToolsHandler()
+
+    # Test with thinking enabled - should use auto tool_choice
+    kwargs = {
+        "messages": [{"role": "user", "content": "test"}],
+        "thinking": {"type": "enabled", "budget_tokens": 1024},
+    }
+
+    _, result = handler.prepare_request(User, kwargs)
+
+    # Should have auto tool_choice when thinking is enabled
+    assert result["tool_choice"]["type"] == "auto"
+    # Should have guidance system message added
+    assert "system" in result
+    assert "tool call" in str(result["system"]).lower()
+
+
+def test_tools_mode_without_thinking_parameter():
+    """Verify TOOLS mode forces tool choice when thinking is disabled."""
+    from instructor.v2.providers.anthropic.handlers import AnthropicToolsHandler
+
+    handler = AnthropicToolsHandler()
+
+    # Test without thinking - should use forced tool_choice
+    kwargs = {
+        "messages": [{"role": "user", "content": "test"}],
+    }
+
+    _, result = handler.prepare_request(User, kwargs)
+
+    # Should have forced tool_choice when thinking is disabled
+    assert result["tool_choice"]["type"] == "tool"
+    assert result["tool_choice"]["name"] == "User"
+
+
+def test_tools_mode_respects_user_tool_choice():
+    """Verify TOOLS mode respects user-provided tool_choice parameter."""
+    from instructor.v2.providers.anthropic.handlers import AnthropicToolsHandler
+
+    handler = AnthropicToolsHandler()
+
+    # Test with user-provided tool_choice - should not override
+    kwargs = {
+        "messages": [{"role": "user", "content": "test"}],
+        "tool_choice": {"type": "auto"},
+    }
+
+    _, result = handler.prepare_request(User, kwargs)
+
+    # Should respect user's tool_choice
+    assert result["tool_choice"]["type"] == "auto"
