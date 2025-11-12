@@ -87,10 +87,13 @@ def from_anthropic(
 
     # Validate mode is registered
     if not mode_registry.is_registered(Provider.ANTHROPIC, mode):
+        from instructor.core.exceptions import ModeError
+
         available_modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
-        raise ValueError(
-            f"Mode.{mode.name} is not registered for Anthropic. "
-            f"Available modes: {[f'Mode.{m.name}' for m in available_modes]}"
+        raise ModeError(
+            mode=mode.value,
+            provider=Provider.ANTHROPIC.value,
+            valid_modes=[m.value for m in available_modes],
         )
 
     # Validate client type
@@ -104,7 +107,9 @@ def from_anthropic(
     )
 
     if not isinstance(client, valid_client_types):
-        raise TypeError(
+        from instructor.core.exceptions import ClientError
+
+        raise ClientError(
             f"Client must be an instance of one of: {', '.join(t.__name__ for t in valid_client_types)}. "
             f"Got: {type(client).__name__}"
         )
