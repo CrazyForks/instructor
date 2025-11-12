@@ -66,11 +66,13 @@ class ModeRegistry:
             response_parser: Handler to parse responses
 
         Raises:
-            ValueError: If mode is already registered
+            ConfigurationError: If mode is already registered
         """
+        from ..core.exceptions import ConfigurationError
+
         mode = (provider, mode)
         if mode in self._handlers:
-            raise ValueError(f"Mode {mode} is already registered")
+            raise ConfigurationError(f"Mode {mode} is already registered")
 
         self._handlers[mode] = ModeHandlers(
             request_handler=request_handler,
@@ -94,11 +96,13 @@ class ModeRegistry:
             loader: Callable that returns ModeHandlers when invoked
 
         Raises:
-            ValueError: If mode is already registered
+            ConfigurationError: If mode is already registered
         """
+        from ..core.exceptions import ConfigurationError
+
         mode = (provider, mode)
         if mode in self._handlers or mode in self._lazy_loaders:
-            raise ValueError(f"Mode {mode} is already registered")
+            raise ConfigurationError(f"Mode {mode} is already registered")
 
         self._lazy_loaders[mode] = loader
 
@@ -139,7 +143,9 @@ class ModeRegistry:
             self._handlers[mode] = handlers
             return handlers
 
-        raise KeyError(
+        from ..core.exceptions import ConfigurationError
+
+        raise ConfigurationError(
             f"Mode {mode} is not registered. "
             f"Available modes: {list(self._handlers.keys())}"
         )
