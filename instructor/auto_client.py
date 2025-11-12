@@ -362,9 +362,13 @@ def from_provider(
                 if async_client
                 else anthropic.Anthropic(api_key=api_key)
             )
+            # Set default max_tokens if not provided (like v1)
+            if "max_tokens" not in kwargs:
+                kwargs["max_tokens"] = 4096
             # Use Mode.TOOLS instead of Mode.ANTHROPIC_TOOLS
             result = from_anthropic(
                 client,
+                model=model_name,
                 mode=mode if mode else instructor.Mode.TOOLS,
                 **kwargs,
             )

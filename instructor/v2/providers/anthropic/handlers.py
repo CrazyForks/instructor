@@ -391,15 +391,27 @@ class AnthropicToolsHandler(ModeHandler):
 
         if is_parallel:
             # Parallel mode: extract and yield multiple tool calls
-            from instructor.dsl.parallel import AnthropicParallelModel
+            from instructor.dsl.parallel import get_types_array
 
-            parallel_wrapper = AnthropicParallelModel(typehint=response_model)
-            return parallel_wrapper.from_response(
-                response,
-                mode=None,  # Not needed for v2
-                validation_context=validation_context,
-                strict=strict,
-            )
+            # Get the union members from Iterable[Union[...]]
+            the_types = get_types_array(response_model)
+            type_registry = {t.__name__: t for t in the_types}
+
+            # Extract and parse all tool calls
+            def parallel_generator():
+                for content in response.content:
+                    if content.type == "tool_use":
+                        tool_name = content.name
+                        if tool_name in type_registry:
+                            model_class = type_registry[tool_name]
+                            json_str = json.dumps(content.input)
+                            yield model_class.model_validate_json(
+                                json_str,
+                                context=validation_context,
+                                strict=strict,
+                            )
+
+            return parallel_generator()
         else:
             # Single tool mode: extract exactly one tool call
             tool_calls = [
