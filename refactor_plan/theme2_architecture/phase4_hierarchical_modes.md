@@ -7,20 +7,20 @@
 **Dependencies**: Phases 1-3 complete
 **Timeline**: v2.0 release only (breaking change)
 
-**Note**: **Hierarchical structure (Provider, ModeType) is now in Phase 1.** This phase adds rich metadata on top of the existing hierarchy.
+**Note**: **Mode registry with (Provider, Mode) tuples is in Phase 1.** This phase adds rich metadata on top of the existing modes.
 
 ---
 
 ## Overview
 
-Add rich metadata to the already-hierarchical modes (from Phase 1) including capabilities, feature flags, and queryable attributes. This is a **breaking change** requiring v2.0.
+Add rich metadata to modes (from Phase 1) including capabilities, feature flags, and queryable attributes. This is a **breaking change** requiring v2.0.
 
 ### Current Problem (After Phase 1)
 
-Phase 1 gives us hierarchical structure:
+Phase 1 gives us mode registry:
 ```python
 # Phase 1 gives us:
-mode = (Provider.ANTHROPIC, ModeType.TOOLS)
+mode = (Provider.ANTHROPIC, Mode.ANTHROPIC_TOOLS)
 
 # But no metadata:
 # - Does this support streaming?
@@ -35,7 +35,7 @@ Add metadata to mode combinations:
 
 ```python
 # Get metadata for a mode combination
-meta = mode_registry.get_metadata(Provider.ANTHROPIC, ModeType.TOOLS)
+meta = mode_registry.get_metadata(Provider.ANTHROPIC, Mode.ANTHROPIC_TOOLS)
 
 meta.supports_streaming  # True
 meta.supports_vision  # True

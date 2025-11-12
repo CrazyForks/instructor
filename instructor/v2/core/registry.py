@@ -246,7 +246,7 @@ class ModeRegistry:
         """List all registered modes.
 
         Returns:
-            List of (Provider, ModeType) tuples
+            List of (Provider, Mode) tuples
         """
         all_modes = set(self._handlers.keys()) | set(self._lazy_loaders.keys())
         return sorted(all_modes, key=lambda m: (m[0].value, m[1].value))

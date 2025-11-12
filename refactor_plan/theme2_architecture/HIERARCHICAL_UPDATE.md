@@ -1,14 +1,14 @@
-# Hierarchical Mode Design Updates
+# Mode Design Updates
 
 **Date**: 2025-11-06
-**Status**: Design approved, implementation pending
-**Impact**: Phase 1 (Mode Registry) updated to use hierarchical design
+**Status**: Design updated
+**Impact**: Phase 1 (Mode Registry) uses flat Mode enum
 
 ---
 
 ## Summary
 
-Phase 1 has been updated to use **hierarchical (Provider, ModeType) design** instead of flat Mode enum.
+Phase 1 uses **flat Mode enum** with `(Provider, Mode)` tuples in the registry. The number of modes will be reduced over time through consolidation.
 
 ### Key Changes
 
@@ -23,7 +23,7 @@ class Mode(Enum):
     # ... 39 more flat modes
 ```
 
-**After** (Hierarchical):
+**After** (Registry with Mode enum):
 ```python
 class Provider(Enum):
     OPENAI = "openai"
@@ -31,16 +31,15 @@ class Provider(Enum):
     GEMINI = "gemini"
     # ... ~15 providers
 
-class ModeType(Enum):
-    TOOLS = "tools"
-    JSON = "json"
-    PARALLEL_TOOLS = "parallel"
-    STRUCTURED_OUTPUTS = "structured"
-    REASONING_TOOLS = "reasoning"
-    # ... ~6 mode types
+class Mode(Enum):
+    # Keep flat Mode enum, reduce modes over time
+    GEMINI_JSON = "gemini_json"
+    GEMINI_TOOLS = "gemini_tools"
+    ANTHROPIC_TOOLS = "anthropic_tools"
+    # ... fewer modes as we consolidate
 
-# Composite mode
-type Mode = tuple[Provider, ModeType]
+# Registry uses (Provider, Mode) tuples
+type ModeKey = tuple[Provider, Mode]
 ```
 
 #### 2. Registry Signature
@@ -57,7 +56,7 @@ mode_registry.register(
 ```python
 mode_registry.register(
     provider=Provider.GEMINI,
-    mode_type=ModeType.JSON,
+    mode=Mode.GEMINI_JSON,
     handler=GeminiJSONHandler()
 )
 ```
@@ -73,7 +72,7 @@ class AnthropicToolsHandler:
 
 **After**:
 ```python
-@register_mode_handler(Provider.ANTHROPIC, ModeType.TOOLS, lazy=True)
+@register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_TOOLS, lazy=True)
 class AnthropicToolsHandler:
     ...
 ```
@@ -81,25 +80,24 @@ class AnthropicToolsHandler:
 #### 4. New Query Methods
 
 ```python
-# Get all mode types for a provider
+# Get all modes for a provider
 gemini_modes = mode_registry.get_modes_for_provider(Provider.GEMINI)
-# → [ModeType.JSON, ModeType.TOOLS]
+# → [Mode.GEMINI_JSON, Mode.GEMINI_TOOLS]
 
-# Get all providers supporting a mode type
-json_providers = mode_registry.get_providers_for_mode(ModeType.JSON)
-# → [Provider.GEMINI, Provider.OPENAI, Provider.ANTHROPIC, ...]
+# Get all providers supporting a mode
+json_providers = mode_registry.get_providers_for_mode(Mode.GEMINI_JSON)
+# → [Provider.GEMINI]
 ```
 
 ---
 
 ## Benefits
 
-1. **Composability**: 15 providers × 6 mode types = any combination vs 42 hardcoded
-2. **Fewer enums**: 21 total (15 + 6) vs 42 flat modes
-3. **Queryable**: Can filter by provider OR mode type
-4. **Clear semantics**: `(GEMINI, JSON)` vs `GEMINI_JSON`
-5. **Easier to extend**: Add provider = register existing mode types
-6. **Provider-agnostic**: Can write code using `ModeType.TOOLS` across providers
+1. **Simpler design**: Keep flat Mode enum, reduce modes over time
+2. **Backward compatible**: Existing Mode enum values continue to work
+3. **Queryable**: Can filter by provider or mode pattern
+4. **Clear semantics**: `(Provider.GEMINI, Mode.GEMINI_JSON)` is explicit
+5. **Easier to extend**: Add new modes as needed, consolidate similar ones over time
 
 ---
 
@@ -125,25 +123,24 @@ Support old flat Mode enum via aliases:
 
 ```python
 # instructor/mode.py
-class LegacyMode(Enum):
-    """Deprecated flat modes for backward compatibility."""
-    GEMINI_JSON = (Provider.GEMINI, ModeType.JSON)
-    GEMINI_TOOLS = (Provider.GEMINI, ModeType.TOOLS)
-    # ... map all 42 old modes
+class Mode(Enum):
+    """Mode enum - will be reduced over time through consolidation."""
+    GEMINI_JSON = "gemini_json"
+    GEMINI_TOOLS = "gemini_tools"
+    # ... modes will be consolidated over time
 
-# Registry supports both
-mode_registry.get_handler(LegacyMode.GEMINI_JSON)  # Unwraps to tuple
-mode_registry.get_handler(Provider.GEMINI, ModeType.JSON)  # New way
+# Registry uses (Provider, Mode) tuples
+mode_registry.get_handler(Provider.GEMINI, Mode.GEMINI_JSON)
 ```
 
 ---
 
 ## Phase 4 Impact
 
-**Phase 4 (Hierarchical Modes)** now has a different role:
+**Phase 4 (Mode Metadata)** adds metadata to modes:
 
-**Before**: Introduce hierarchical structure (Provider + ModeType)
-**After**: Add rich metadata to already-hierarchical modes
+**Before**: Introduce hierarchical structure (not needed)
+**After**: Add rich metadata to flat Mode enum
 
 Phase 4 now adds:
 - ModeCapability enum
@@ -155,12 +152,12 @@ Phase 4 now adds:
 
 ## Next Steps
 
-1. ✅ Phase 1 document updated with hierarchical design concept
-2. ⏳ Update Phase 4 to reflect new role (metadata only)
-3. ⏳ During Phase 1 implementation, use hierarchical design throughout
-4. ⏳ Implement backward compatibility layer for flat Mode enum
+1. ✅ Phase 1 document updated to use flat Mode enum
+2. ⏳ Update Phase 4 to reflect metadata-only role
+3. ⏳ During Phase 1 implementation, use (Provider, Mode) tuples in registry
+4. ⏳ Consolidate similar modes over time to reduce total count
 
 ---
 
 **Status**: Architectural decision made, documentation updated
-**Implementation**: Use hierarchical design when starting Phase 1
+**Implementation**: Use flat Mode enum with (Provider, Mode) tuples in registry

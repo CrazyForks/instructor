@@ -62,9 +62,9 @@ def test_from_provider_with_mode_compatibility():
     """Test that from_provider() handles v1 Mode enum for compatibility."""
     import instructor
 
-    # Passing v1 Mode should still work (gets converted to v2 ModeType)
+    # Passing v1 Mode should still work (gets converted to v2 Mode)
     client = instructor.from_provider(
-        "anthropic/claude-3-5-sonnet-20241022", mode=instructor.Mode.ANTHROPIC_TOOLS
+        "anthropic/claude-3-5-sonnet-20241022", mode=instructor.Mode.TOOLS
     )
 
     assert client is not None

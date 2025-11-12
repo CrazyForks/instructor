@@ -95,13 +95,12 @@ mode_handlers = {  # type: ignore
 
 ### Goals
 
-1. **Hierarchical Design**: Separate Provider and ModeType enums instead of flat Mode enum
-2. **Single Registry**: One source of truth for mode handlers
-3. **Lazy Loading**: Load handlers only when mode is used
-4. **Type Safety**: Protocol-based validation at registration
-5. **Provider Independence**: Providers register their own modes
-6. **Composability**: Any (Provider, ModeType) combination vs 42 hardcoded modes
-7. **Backward Compatible**: Support old code during migration
+1. **Single Registry**: One source of truth for mode handlers
+2. **Lazy Loading**: Load handlers only when mode is used
+3. **Type Safety**: Protocol-based validation at registration
+4. **Provider Independence**: Providers register their own modes
+5. **Backward Compatible**: Support old code during migration
+6. **Simplified Modes**: Reduce number of modes over time while keeping flat Mode enum
 
 ### Success Metrics
 
@@ -176,11 +175,11 @@ def process_response_*(
 
 ---
 
-## Hierarchical Mode Design (NEW)
+## Mode Design
 
-### Flat vs Hierarchical
+### Current State
 
-**Current** (Flat - 42 separate enums):
+**Current** (Flat Mode enum - 42 modes):
 ```python
 class Mode(Enum):
     GEMINI_JSON = "gemini_json"
@@ -192,67 +191,33 @@ class Mode(Enum):
     # ... 36 more modes
 ```
 
-**Issues with flat design**:
-- 42 separate mode enums
-- Adding provider requires N new mode enums
-- Can't query "all JSON modes" or "all Anthropic modes"
-- Mode names inconsistent (`json_mode` vs `gemini_json`)
-- Not composable
+**Future Direction**:
+- Keep flat Mode enum structure
+- Reduce number of modes over time by consolidating similar modes
+- Maintain backward compatibility during consolidation
 
-**New** (Hierarchical - Provider + ModeType):
-```python
-class Provider(Enum):
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    GEMINI = "gemini"
-    COHERE = "cohere"
-    # ... ~15 providers
+### Registry with Mode Enum
 
-class ModeType(Enum):
-    TOOLS = "tools"
-    JSON = "json"
-    PARALLEL_TOOLS = "parallel"
-    STRUCTURED_OUTPUTS = "structured"
-    REASONING_TOOLS = "reasoning"
-    # ... ~6 mode types
-
-# Composite mode = (Provider, ModeType)
-type Mode = tuple[Provider, ModeType]
-
-# Usage
-mode = (Provider.GEMINI, ModeType.JSON)
-```
-
-**Benefits**:
-1. **Fewer enums**: 15 + 6 = 21 enums vs 42
-2. **Composable**: Any (Provider, ModeType) combination
-3. **Queryable**: "All JSON modes" = `filter by ModeType.JSON`
-4. **Clear semantics**: `(GEMINI, JSON)` is clearer than `GEMINI_JSON`
-5. **Easier to add providers**: Just register existing mode types
-6. **Provider-agnostic code**: Can use `ModeType.TOOLS` across providers
-
-### Registry with Composite Keys
-
-Registry uses `(Provider, ModeType)` as keys instead of flat `Mode`:
+Registry uses `(Provider, Mode)` tuples as keys:
 
 ```python
 # Registration
 mode_registry.register(
     provider=Provider.GEMINI,
-    mode_type=ModeType.JSON,
+    mode=Mode.GEMINI_JSON,
     handler=GeminiJSONHandler()
 )
 
 # Lookup
-handler = mode_registry.get_handler(Provider.GEMINI, ModeType.JSON)
+handler = mode_registry.get_handler(Provider.GEMINI, Mode.GEMINI_JSON)
 
 # Query by provider
 gemini_modes = mode_registry.get_modes_for_provider(Provider.GEMINI)
-# → [ModeType.JSON, ModeType.TOOLS]
+# → [Mode.GEMINI_JSON, Mode.GEMINI_TOOLS]
 
-# Query by mode type
-json_providers = mode_registry.get_providers_for_mode(ModeType.JSON)
-# → [Provider.GEMINI, Provider.OPENAI, Provider.ANTHROPIC, ...]
+# Query by mode pattern
+json_modes = mode_registry.get_modes_matching(pattern="*_JSON")
+# → [Mode.GEMINI_JSON, Mode.OPENAI_JSON, Mode.ANTHROPIC_JSON, ...]
 ```
 
 ---
@@ -264,14 +229,14 @@ json_providers = mode_registry.get_providers_for_mode(ModeType.JSON)
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        ModeRegistry                              │
-│  - _handlers: dict[tuple[Provider, ModeType], ModeHandler]      │
-│  - _lazy_loaders: dict[tuple[Provider, ModeType], Callable]     │
+│  - _handlers: dict[tuple[Provider, Mode], ModeHandler]          │
+│  - _lazy_loaders: dict[tuple[Provider, Mode], Callable]         │
 │                                                                  │
-│  + register(provider, mode_type, handler?, lazy_loader?)        │
-│  + get_handler(provider, mode_type) -> ModeHandler              │
-│  + get_modes_for_provider(provider) -> list[ModeType]           │
-│  + get_providers_for_mode(mode_type) -> list[Provider]          │
-│  + has_mode(provider, mode_type) -> bool                        │
+│  + register(provider, mode, handler?, lazy_loader?)            │
+│  + get_handler(provider, mode) -> ModeHandler                   │
+│  + get_modes_for_provider(provider) -> list[Mode]               │
+│  + get_providers_for_mode(mode) -> list[Provider]               │
+│  + has_mode(provider, mode) -> bool                             │
 └─────────────────────────────────────────────────────────────────┘
                             │
                             │ uses
