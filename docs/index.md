@@ -338,7 +338,7 @@ Get structured data from OpenAI's most powerful models including GPT-4, GPT-4 Tu
 
 === "Anthropic"
     ```bash
-    pip install "instructor[anthropic]"
+    uv pip install "instructor[anthropic]"
     ```
 
     ```python
@@ -351,10 +351,13 @@ Get structured data from OpenAI's most powerful models including GPT-4, GPT-4 Tu
         age: int
 
 
-    client = instructor.from_provider("anthropic/claude-3-5-sonnet-20240620")
+    client = instructor.from_provider(
+        "anthropic/claude-3-5-sonnet-20240620",
+        mode=instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS,
+    )
 
     # note that client.chat.completions.create will also work
-    resp = client.messages.create(
+    resp = client.chat.completions.create(
         max_tokens=1024,
         messages=[
             {

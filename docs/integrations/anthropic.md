@@ -437,8 +437,55 @@ We provide several modes to make it easy to work with the different response mod
 1. `instructor.Mode.ANTHROPIC_JSON` : This uses the text completion API from the Anthropic API and then extracts out the desired response model from the text completion model
 2. `instructor.Mode.ANTHROPIC_TOOLS` : This uses Anthropic's [tools calling API](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) to return structured outputs to the client
 3. `instructor.Mode.ANTHROPIC_PARALLEL_TOOLS` : Runs multiple tools in parallel and returns a list of tool calls
+4. `instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS` : Enables Claude's structured outputs beta so the model must produce JSON that matches your schema exactly
 
-In general, we recommend using `Mode.ANTHROPIC_TOOLS` because it's the best way to ensure you have the desired response schema that you want.
+### Structured Outputs (Beta)
+
+Anthropic's new structured outputs beta gives stronger schema guarantees than classic tool calling. Instructor makes it a one-line switch by handling the beta flag and output schema for you.
+
+```bash
+uv pip install "anthropic>=0.71.0"
+```
+
+```python
+from anthropic import Anthropic
+import instructor
+from pydantic import BaseModel
+
+
+class ContactInfo(BaseModel):
+    name: str
+    email: str
+    plan_interest: str
+    demo_requested: bool
+
+
+client = instructor.from_anthropic(
+    Anthropic(),
+    mode=instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS,
+)
+
+response = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": (
+                "Extract contact info from this email: "
+                "John Smith <john@example.com> wants the Enterprise plan "
+                "and requested a demo next Tuesday at 2pm."
+            ),
+        }
+    ],
+    max_tokens=1024,
+    response_model=ContactInfo,
+)
+
+print(response)
+```
+
+Instructor injects the required `output_format` parameter and beta tag (`structured-outputs-2025-11-13`) automatically. You can still add your own beta flags; Instructor will only append the structured outputs flag if it is missing.
+
+Use `Mode.ANTHROPIC_STRUCTURED_OUTPUTS` when you need hard schema guarantees on Claude 4.5 models with the beta enabled. Stick with `Mode.ANTHROPIC_TOOLS` for broader model coverage or when you do not need the extra guarantees.
 
 ## Caching
 

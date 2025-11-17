@@ -24,6 +24,7 @@ Here's a quick comparison:
 | `JSON_O1` | One-shot completion with JSON | Simple extractions | OpenAI, Azure |
 | `ANTHROPIC_TOOLS` | Anthropic's tool calling | Claude models | Anthropic |
 | `ANTHROPIC_JSON` | Direct JSON with Claude | Claude models | Anthropic |
+| `ANTHROPIC_STRUCTURED_OUTPUTS` | Claude structured outputs beta | Strict schemas on Claude 4.5+ | Anthropic |
 | `GENAI_TOOLS` | Google's function calling (new) | Gemini models | Google |
 | `GENAI_STRUCTURED_OUTPUTS` | Direct JSON with Gemini (new) | Gemini models | Google |
 | `GEMINI_TOOLS` | **Deprecated** - Use GENAI_TOOLS | Gemini models | Google |
@@ -113,6 +114,21 @@ This mode requests direct JSON output from Anthropic models. It:
 - May be more flexible for simple cases
 
 **Best for**: Simple structures or with older Claude models.
+
+#### `ANTHROPIC_STRUCTURED_OUTPUTS` Mode
+
+```python
+client = instructor.from_provider(
+    "anthropic/claude-sonnet-4.5-latest",
+    mode=instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS,
+)
+```
+
+This mode enables Claude's structured outputs beta. Instructor generates the `output_format` schema, adds the required `structured-outputs-2025-11-13` beta tag, and validates the response against your Pydantic model.
+
+**Best for**: Production workloads that need strict schema guarantees on Claude 4.5+ structured output models.
+
+**Note**: Requires anthropic>=0.71.0 and access to the structured outputs beta.
 
 ### Google/Gemini Modes
 

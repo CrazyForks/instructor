@@ -7,7 +7,7 @@ including reask functions, response handlers, and message formatting.
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import Any, TypedDict, Union
+from typing import Any, Callable, TypedDict, Union
 
 
 from ...mode import Mode
@@ -431,17 +431,11 @@ def handle_anthropic_structured_outputs(
         m for m in new_kwargs.get("messages", []) if m["role"] != "system"
     ]
 
-    try:
-        from anthropic import transform_schema
-    except ImportError as exc:  # pragma: no cover - anthropic is an optional extra
-        raise ImportError(
-            "The anthropic package >=0.71.0 is required for structured outputs. "
-            "Install it with `uv pip install anthropic`."
-        ) from exc
+    schema_transformer = _get_structured_output_transformer()
 
     new_kwargs["output_format"] = {
         "type": "json_schema",
-        "schema": transform_schema(response_model),
+        "schema": schema_transformer(response_model),
     }
 
     required_beta = "structured-outputs-2025-11-13"
@@ -528,3 +522,28 @@ ANTHROPIC_HANDLERS = {
         "response": handle_anthropic_parallel_tools,
     },
 }
+
+
+def _get_structured_output_transformer() -> Callable[[type[Any]], dict[str, Any]]:
+    """
+    Retrieve the helper function that converts a Pydantic model into an Anthropic structured
+    output schema.
+
+    Anthropic's SDK is rolling out `transform_schema`. When unavailable, we fall back to
+    using `model_json_schema()` directly, which matches the documented request format.
+    """
+
+    try:  # pragma: no cover - import path may vary across SDK versions
+        from anthropic import transform_schema  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover - Anthropic optional extra
+        transform_schema = None  # type: ignore
+    except AttributeError:  # pragma: no cover - older SDKs without helper
+        transform_schema = None  # type: ignore
+
+    if callable(transform_schema):
+        return transform_schema  # type: ignore[return-value]
+
+    def default_transform(model: type[Any]) -> dict[str, Any]:
+        return model.model_json_schema()
+
+    return default_transform
