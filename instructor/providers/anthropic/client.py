@@ -47,7 +47,7 @@ def from_anthropic(
 
     Args:
         client: An instance of Anthropic client (sync or async)
-        mode: The mode to use for the client (ANTHROPIC_JSON or ANTHROPIC_TOOLS)
+        mode: The mode to use for the client (e.g. ANTHROPIC_JSON, ANTHROPIC_STRUCTURED_OUTPUTS)
         beta: Whether to use beta API features (uses client.beta.messages.create)
         **kwargs: Additional keyword arguments to pass to the Instructor constructor
 
@@ -62,6 +62,7 @@ def from_anthropic(
         instructor.Mode.ANTHROPIC_JSON,
         instructor.Mode.ANTHROPIC_TOOLS,
         instructor.Mode.ANTHROPIC_REASONING_TOOLS,
+        instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS,
         instructor.Mode.ANTHROPIC_PARALLEL_TOOLS,
     }
 
@@ -90,6 +91,9 @@ def from_anthropic(
             f"Client must be an instance of one of: {', '.join(t.__name__ for t in valid_client_types)}. "
             f"Got: {type(client).__name__}"
         )
+
+    if mode == instructor.Mode.ANTHROPIC_STRUCTURED_OUTPUTS:
+        beta = True
 
     if beta:
         create = client.beta.messages.create

@@ -398,6 +398,72 @@ def handle_anthropic_json(
     return response_model, new_kwargs
 
 
+def handle_anthropic_structured_outputs(
+    response_model: type[Any] | None, new_kwargs: dict[str, Any]
+) -> tuple[type[Any], dict[str, Any]]:
+    """
+    Handle Anthropic structured outputs mode.
+
+    This mode uses Claude's native structured output enforcement via the `output_format`
+    parameter. It requires an explicit response model.
+
+    Kwargs modifications:
+    - Adds/Modifies: "system" (moves system messages into the system parameter)
+    - Removes: system messages from "messages"
+    - Adds: "output_format" (json_schema derived from the response model)
+    - Adds: "betas" entry enabling the structured outputs beta if not already present
+    """
+    if response_model is None:
+        from ...core.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "Mode.ANTHROPIC_STRUCTURED_OUTPUTS requires a `response_model`."
+        )
+
+    system_messages = extract_system_messages(new_kwargs.get("messages", []))
+
+    if system_messages:
+        new_kwargs["system"] = combine_system_messages(
+            new_kwargs.get("system"), system_messages
+        )
+
+    new_kwargs["messages"] = [
+        m for m in new_kwargs.get("messages", []) if m["role"] != "system"
+    ]
+
+    try:
+        from anthropic import transform_schema
+    except ImportError as exc:  # pragma: no cover - anthropic is an optional extra
+        raise ImportError(
+            "The anthropic package >=0.71.0 is required for structured outputs. "
+            "Install it with `uv pip install anthropic`."
+        ) from exc
+
+    new_kwargs["output_format"] = {
+        "type": "json_schema",
+        "schema": transform_schema(response_model),
+    }
+
+    required_beta = "structured-outputs-2025-11-13"
+    betas = new_kwargs.get("betas")
+    if betas is None:
+        new_kwargs["betas"] = [required_beta]
+    else:
+        if isinstance(betas, str):
+            betas = [betas]
+        elif not isinstance(betas, list):
+            betas = list(betas)
+        if required_beta not in betas:
+            betas.append(required_beta)
+        new_kwargs["betas"] = betas
+
+    # Ensure legacy tool kwargs are cleared
+    new_kwargs.pop("tools", None)
+    new_kwargs.pop("tool_choice", None)
+
+    return response_model, new_kwargs
+
+
 def handle_anthropic_parallel_tools(
     response_model: type[Any], new_kwargs: dict[str, Any]
 ) -> tuple[Any, dict[str, Any]]:
@@ -448,6 +514,10 @@ ANTHROPIC_HANDLERS = {
     Mode.ANTHROPIC_JSON: {
         "reask": reask_anthropic_json,
         "response": handle_anthropic_json,
+    },
+    Mode.ANTHROPIC_STRUCTURED_OUTPUTS: {
+        "reask": reask_anthropic_json,
+        "response": handle_anthropic_structured_outputs,
     },
     Mode.ANTHROPIC_REASONING_TOOLS: {
         "reask": reask_anthropic_tools,

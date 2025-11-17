@@ -107,7 +107,11 @@ def initialize_usage(mode: Mode) -> CompletionUsage | Any:
         ),
         prompt_tokens_details=PromptTokensDetails(audio_tokens=0, cached_tokens=0),
     )
-    if mode in {Mode.ANTHROPIC_TOOLS, Mode.ANTHROPIC_JSON}:
+    if mode in {
+        Mode.ANTHROPIC_TOOLS,
+        Mode.ANTHROPIC_JSON,
+        Mode.ANTHROPIC_STRUCTURED_OUTPUTS,
+    }:
         from anthropic.types import Usage as AnthropicUsage
 
         total_usage = AnthropicUsage(
