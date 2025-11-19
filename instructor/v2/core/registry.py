@@ -32,6 +32,10 @@ def normalize_mode(mode: Mode) -> Mode:
         Mode.ANTHROPIC_TOOLS: Mode.TOOLS,
         Mode.ANTHROPIC_PARALLEL_TOOLS: Mode.PARALLEL_TOOLS,
         Mode.ANTHROPIC_JSON: Mode.JSON,
+        # GenAI modes
+        Mode.GENAI_TOOLS: Mode.TOOLS,
+        Mode.GENAI_JSON: Mode.JSON,
+        Mode.GENAI_STRUCTURED_OUTPUTS: Mode.JSON,
         # Keep ANTHROPIC_REASONING_TOOLS as-is since it's deprecated but still used
     }
 
