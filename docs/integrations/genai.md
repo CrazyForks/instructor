@@ -65,6 +65,35 @@ response = client.chat.completions.create(
 print(response)  # User(name='Jason', age=25)
 ```
 
+## Using the v2 GenAI client
+
+If you prefer to work directly with the native `google.genai.Client`, the v2 helper keeps the Google request format intact while still giving you Instructor's structured outputs.
+
+```python
+from google.genai import Client
+from instructor import Mode
+from instructor.v2 import from_genai
+from pydantic import BaseModel
+
+
+class User(BaseModel):
+    name: str
+    age: int
+
+
+raw_client = Client(api_key="YOUR_KEY")
+client = from_genai(raw_client, mode=Mode.GENAI_TOOLS)
+
+result = client.chat.completions.create(
+    messages=[{"role": "user", "content": "Extract: Jason is 25 years old"}],
+    response_model=User,
+)
+
+print(result)
+```
+
+Behind the scenes the v2 client registers the correct mode handler, converts OpenAI-style messages to the GenAI `contents` format, and parses the response while filtering Gemini thought parts.
+
 ## Message Formatting
 
 Genai supports multiple message formats, and Instructor seamlessly works with all of them. This flexibility allows you to use whichever format is most convenient for your application:
