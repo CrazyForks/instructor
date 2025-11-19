@@ -105,6 +105,14 @@ class GenAIHandlerBase(ModeHandler):
         if response_model is None:
             return response
 
+        # Map normalized mode back to provider-specific mode for parse methods
+        # Parse methods expect provider-specific modes
+        parse_mode = self.mode
+        if self.mode == Mode.TOOLS:
+            parse_mode = Mode.GENAI_TOOLS
+        elif self.mode == Mode.JSON:
+            parse_mode = Mode.GENAI_STRUCTURED_OUTPUTS
+
         if (
             stream
             and isinstance(response_model, type)
@@ -113,18 +121,18 @@ class GenAIHandlerBase(ModeHandler):
             if is_async:
                 return response_model.from_streaming_response_async(  # type: ignore
                     response,
-                    mode=self.mode,
+                    mode=parse_mode,
                 )
             return response_model.from_streaming_response(
                 response,
-                mode=self.mode,
+                mode=parse_mode,
             )
 
         model = response_model.from_response(  # type: ignore
             response,
             validation_context=validation_context,
             strict=strict,
-            mode=self.mode,
+            mode=parse_mode,
         )
 
         if isinstance(model, IterableBase):
@@ -150,7 +158,7 @@ class GenAIHandlerBase(ModeHandler):
         return kwargs.copy()
 
 
-@register_mode_handler(Provider.GENAI, Mode.GENAI_TOOLS)
+@register_mode_handler(Provider.GENAI, Mode.TOOLS)
 class GenAIToolsHandler(GenAIHandlerBase):
     """Mode handler for GenAI tools/function calling."""
 
@@ -215,7 +223,7 @@ class GenAIToolsHandler(GenAIHandlerBase):
         )
 
 
-@register_mode_handler(Provider.GENAI, Mode.GENAI_STRUCTURED_OUTPUTS)
+@register_mode_handler(Provider.GENAI, Mode.JSON)
 class GenAIStructuredOutputsHandler(GenAIHandlerBase):
     """Mode handler for GenAI structured outputs / JSON schema."""
 

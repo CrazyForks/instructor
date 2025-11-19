@@ -12,7 +12,7 @@ from ...mode import Mode
 from ...templating import handle_templating
 from ...utils import is_async
 from ...utils.providers import Provider
-from .registry import mode_registry
+from .registry import mode_registry, normalize_mode
 from .retry import retry_async_v2, retry_sync_v2
 
 T_Model = TypeVar("T_Model")
@@ -65,8 +65,10 @@ def patch_v2(
     mode: Mode,
 ) -> PatchedCreateCallable:
     """Patch provider specific create functions using the v2 registry."""
-
-    handler_cls = mode_registry.get_handler_class(provider, mode)
+    
+    # Normalize mode before handler lookup
+    normalized_mode = normalize_mode(provider, mode)
+    handler_cls = mode_registry.get_handler_class(provider, normalized_mode)
     func_is_async = is_async(create)
 
     @wraps(create)  # type: ignore[arg-type]
@@ -85,7 +87,7 @@ def patch_v2(
         cache_ttl = cache_ttl_raw if isinstance(cache_ttl_raw, int) else None
         context = handle_context(context, validation_context)
 
-        handler = handler_cls(provider=provider, mode=mode)
+        handler = handler_cls(provider=provider, mode=normalized_mode)
         response_model, new_kwargs = handler.prepare_request(
             response_model=response_model,
             **kwargs,
@@ -132,7 +134,7 @@ def patch_v2(
         cache_ttl = cache_ttl_raw if isinstance(cache_ttl_raw, int) else None
         context = handle_context(context, validation_context)
 
-        handler = handler_cls(provider=provider, mode=mode)
+        handler = handler_cls(provider=provider, mode=normalized_mode)
         response_model, new_kwargs = handler.prepare_request(
             response_model=response_model,
             **kwargs,

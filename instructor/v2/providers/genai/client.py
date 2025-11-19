@@ -9,9 +9,14 @@ from ....core.exceptions import ClientError, ModeError
 from ....mode import Mode
 from ....utils.providers import Provider
 from ...core.patch import patch_v2
+from ...core.registry import normalize_mode
 
 VALID_MODES = {
+    Mode.TOOLS,
+    Mode.JSON,
+    # Backwards compatibility
     Mode.GENAI_TOOLS,
+    Mode.GENAI_JSON,
     Mode.GENAI_STRUCTURED_OUTPUTS,
 }
 
@@ -19,7 +24,7 @@ VALID_MODES = {
 @overload
 def from_genai(
     client: Client,
-    mode: Mode = Mode.GENAI_TOOLS,
+    mode: Mode = Mode.TOOLS,
     *,
     use_async: Literal[True],
     **kwargs: Any,
@@ -29,7 +34,7 @@ def from_genai(
 @overload
 def from_genai(
     client: Client,
-    mode: Mode = Mode.GENAI_TOOLS,
+    mode: Mode = Mode.TOOLS,
     *,
     use_async: Literal[False],
     **kwargs: Any,
@@ -38,13 +43,16 @@ def from_genai(
 
 def from_genai(
     client: Client,
-    mode: Mode = Mode.GENAI_TOOLS,
+    mode: Mode = Mode.TOOLS,
     *,
     use_async: bool = False,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     """
     Create a v2 Instructor client from a google.genai.Client instance.
+    
+    Supports generic modes (TOOLS, JSON) and backwards-compatible provider-specific modes
+    (GENAI_TOOLS, GENAI_JSON, GENAI_STRUCTURED_OUTPUTS).
     """
 
     if mode not in VALID_MODES:
@@ -59,6 +67,9 @@ def from_genai(
             f"Client must be an instance of google.genai.Client. Got: {type(client).__name__}"
         )
 
+    # Normalize mode for handler lookup (preserve original for client)
+    normalized_mode = normalize_mode(Provider.GENAI, mode)
+
     if use_async:
 
         async def async_wrapper(*args: Any, **call_kwargs: Any) -> Any:
@@ -69,13 +80,13 @@ def from_genai(
         patched = patch_v2(
             create=async_wrapper,
             provider=Provider.GENAI,
-            mode=mode,
+            mode=normalized_mode,
         )
         return AsyncInstructor(
             client=client,
             create=patched,
             provider=Provider.GENAI,
-            mode=mode,
+            mode=mode,  # Keep original mode for client
             **kwargs,
         )
 
@@ -87,13 +98,13 @@ def from_genai(
     patched = patch_v2(
         create=sync_wrapper,
         provider=Provider.GENAI,
-        mode=mode,
+        mode=normalized_mode,
     )
     return Instructor(
         client=client,
         create=patched,
         provider=Provider.GENAI,
-        mode=mode,
+        mode=mode,  # Keep original mode for client
         **kwargs,
     )
 

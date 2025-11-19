@@ -23,7 +23,7 @@ class Contact(BaseModel):
 
 
 def test_tools_prepare_request_includes_function_schema():
-    handler = GenAIToolsHandler(provider=Provider.GENAI, mode=Mode.GENAI_TOOLS)
+    handler = GenAIToolsHandler(provider=Provider.GENAI, mode=Mode.TOOLS)
     response_model, kwargs = handler.prepare_request(
         Contact,
         messages=[{"role": "user", "content": "Jane is 28."}],
@@ -38,7 +38,7 @@ def test_tools_prepare_request_includes_function_schema():
 
 def test_structured_prepare_request_wraps_streaming_models():
     handler = GenAIStructuredOutputsHandler(
-        provider=Provider.GENAI, mode=Mode.GENAI_STRUCTURED_OUTPUTS
+        provider=Provider.GENAI, mode=Mode.JSON
     )
     response_model, _ = handler.prepare_request(
         Contact,
@@ -53,7 +53,7 @@ def test_structured_prepare_request_wraps_streaming_models():
 
 
 def test_tools_parse_response_filters_thought_parts():
-    handler = GenAIToolsHandler(provider=Provider.GENAI, mode=Mode.GENAI_TOOLS)
+    handler = GenAIToolsHandler(provider=Provider.GENAI, mode=Mode.TOOLS)
     response_model = prepare_response_model(Contact)
 
     thought_part = types.Part.from_text(text="thinking...")
@@ -88,7 +88,7 @@ def test_tools_parse_response_filters_thought_parts():
 
 def test_structured_handle_reask_appends_feedback():
     handler = GenAIStructuredOutputsHandler(
-        provider=Provider.GENAI, mode=Mode.GENAI_STRUCTURED_OUTPUTS
+        provider=Provider.GENAI, mode=Mode.JSON
     )
 
     class DummyResponse:
