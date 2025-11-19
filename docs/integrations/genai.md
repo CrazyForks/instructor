@@ -21,7 +21,7 @@ This guide demonstrates how to use Instructor with Google's `genai` SDK to extra
 We currently have two modes for Gemini
 
 - `Mode.GENAI_TOOLS` : This leverages function calling under the hood and returns a structured response
-- `Mode.GENAI_STRUCTURED_OUTPUTS` : This provides Gemini with a JSON Schema that it will use to respond in a structured format with
+- `Mode.GENAI_JSON` : This provides Gemini with a JSON Schema that it will use to respond in a structured format with
 
 !!! info "Gemini Thought Parts Filtering"
 
@@ -543,7 +543,7 @@ print(response)
 
     **As of July 11, 2025, Google GenAI does not support streaming with tool/function calling or structured outputs for regular models.** 
     
-    - `Mode.GENAI_TOOLS` and `Mode.GENAI_STRUCTURED_OUTPUTS` do not support streaming with regular models
+    - `Mode.GENAI_TOOLS` and `Mode.GENAI_JSON` do not support streaming with regular models
     - To use streaming, you must use `Partial[YourModel]` explicitly or switch to other modes like `Mode.JSON`
     - Alternatively, set `stream=False` to disable streaming
 
@@ -560,7 +560,7 @@ import instructor
 
 client = instructor.from_provider(
     "google/gemini-2.5-flash",
-    mode=instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
+    mode=instructor.Mode.GENAI_JSON,
 )
 
 

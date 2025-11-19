@@ -290,7 +290,7 @@ These limitations are specific to Google Gemini and do not affect other provider
 We provide several modes to make it easy to work with the different response models that Gemini supports:
 
 1. `instructor.Mode.GENAI_TOOLS` : This uses Gemini's tool calling API to return structured outputs (default)
-2. `instructor.Mode.GENAI_STRUCTURED_OUTPUTS` : This uses Gemini's JSON schema mode for structured outputs
+2. `instructor.Mode.GENAI_JSON` : This uses Gemini's JSON schema mode for structured outputs
 
 !!! info "Mode Selection"
     When using `from_provider`, the appropriate mode is automatically selected based on the provider and model capabilities.
