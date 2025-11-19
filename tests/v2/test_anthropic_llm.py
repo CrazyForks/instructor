@@ -4,10 +4,14 @@ LLM tests for v2 Anthropic provider.
 These tests make actual API calls and require ANTHROPIC_API_KEY.
 """
 
+import pytest
 import instructor
 from typing import Literal
 from collections.abc import Iterable
 from pydantic import BaseModel
+
+# All tests in this module require API key
+pytestmark = pytest.mark.requires_api_key
 
 
 class Answer(BaseModel):

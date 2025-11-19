@@ -1,16 +1,22 @@
 # conftest.py
 import os
 import pytest
-import importlib
+import importlib.util
 
 
-if not os.getenv("ANTHROPIC_API_KEY"):
-    pytest.skip(
-        "ANTHROPIC_API_KEY environment variable not set",
-        allow_module_level=True,
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers", "requires_api_key: mark test as requiring ANTHROPIC_API_KEY"
     )
 
-if (
-    importlib.util.find_spec("anthropic") is None
-):  # pragma: no cover - optional dependency
-    pytest.skip("anthropic package is not installed", allow_module_level=True)
+
+@pytest.fixture(autouse=True)
+def check_api_key_requirement(request):
+    """Skip tests marked with 'requires_api_key' if API key is not set."""
+    if request.node.get_closest_marker("requires_api_key"):
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            pytest.skip("ANTHROPIC_API_KEY environment variable not set")
+
+        if importlib.util.find_spec("anthropic") is None:
+            pytest.skip("anthropic package is not installed")

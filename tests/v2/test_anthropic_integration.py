@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from instructor import Mode
 from instructor.v2 import Provider, from_anthropic, mode_registry
 
+# All tests in this module require API key
+pytestmark = pytest.mark.requires_api_key
+
 
 class User(BaseModel):
     """Test model for extraction."""

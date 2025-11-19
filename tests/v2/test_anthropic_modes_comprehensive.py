@@ -63,6 +63,7 @@ def test_mode_is_registered(mode):
         Mode.JSON_SCHEMA,
     ],
 )
+@pytest.mark.requires_api_key
 def test_mode_basic_extraction(mode):
     """Test basic extraction with each mode."""
     client = instructor.from_provider(
@@ -84,6 +85,7 @@ def test_mode_basic_extraction(mode):
     assert response.answer == 4.0
 
 
+@pytest.mark.requires_api_key
 def test_mode_json_schema_extraction():
     """Test JSON_SCHEMA mode extraction."""
     try:
@@ -113,6 +115,7 @@ def test_mode_json_schema_extraction():
     assert response.answer == 6.0
 
 
+@pytest.mark.requires_api_key
 def test_mode_parallel_tools_extraction():
     """Test PARALLEL_TOOLS mode extraction."""
     client = instructor.from_provider(
@@ -147,6 +150,7 @@ def test_mode_parallel_tools_extraction():
     ],
 )
 @pytest.mark.asyncio
+@pytest.mark.requires_api_key
 async def test_mode_async_extraction(mode):
     """Test async extraction with each mode."""
     client = instructor.from_provider(
@@ -176,6 +180,7 @@ async def test_mode_async_extraction(mode):
         Mode.ANTHROPIC_REASONING_TOOLS,
     ],
 )
+@pytest.mark.requires_api_key
 def test_mode_tools_with_thinking(mode):
     """Test tools modes with thinking parameter."""
     # Note: Thinking requires Claude 3.7 Sonnet or later
@@ -200,6 +205,7 @@ def test_mode_tools_with_thinking(mode):
     assert response.answer == 10.0
 
 
+@pytest.mark.requires_api_key
 def test_mode_reasoning_tools_deprecation():
     """Test that ANTHROPIC_REASONING_TOOLS shows deprecation warning."""
     import warnings
@@ -248,6 +254,7 @@ def test_mode_reasoning_tools_deprecation():
         assert response.answer == 12.0
 
 
+@pytest.mark.requires_api_key
 def test_all_modes_covered():
     """Verify we're testing all registered modes."""
     tested_modes = {
