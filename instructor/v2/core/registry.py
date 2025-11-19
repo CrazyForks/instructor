@@ -13,6 +13,32 @@ from instructor import Mode, Provider
 from instructor.v2.core.protocols import ReaskHandler, RequestHandler, ResponseParser
 
 
+def normalize_mode(mode: Mode) -> Mode:
+    """Convert provider-specific modes to generic modes.
+
+    This allows backward compatibility - users can still use provider-specific
+    modes like Mode.ANTHROPIC_TOOLS, and they'll be converted to generic modes
+    like Mode.TOOLS for registry lookup.
+
+    Args:
+        mode: Mode enum value (may be provider-specific)
+
+    Returns:
+        Generic mode enum value
+    """
+    # Mapping of provider-specific modes to generic modes
+    mode_mapping: dict[Mode, Mode] = {
+        # Anthropic modes
+        Mode.ANTHROPIC_TOOLS: Mode.TOOLS,
+        Mode.ANTHROPIC_PARALLEL_TOOLS: Mode.PARALLEL_TOOLS,
+        Mode.ANTHROPIC_JSON: Mode.JSON,
+        # Keep ANTHROPIC_REASONING_TOOLS as-is since it's deprecated but still used
+    }
+
+    # Convert if mapping exists, otherwise return as-is
+    return mode_mapping.get(mode, mode)
+
+
 @dataclass
 class ModeHandlers:
     """Collection of handlers for a specific mode."""
@@ -115,7 +141,7 @@ class ModeRegistry:
 
         Args:
             provider: Provider enum value
-            mode: Mode enum value
+            mode: Mode enum value (provider-specific modes will be converted)
 
         Returns:
             ModeHandlers with all handler functions (request_handler,
@@ -130,7 +156,9 @@ class ModeRegistry:
             >>> handlers.reask_handler(...)
             >>> handlers.response_parser(...)
         """
-        mode = (provider, mode)
+        # Convert provider-specific modes to generic modes
+        normalized_mode = normalize_mode(mode)
+        mode = (provider, normalized_mode)
 
         # Check if already loaded
         if mode in self._handlers:
@@ -164,7 +192,7 @@ class ModeRegistry:
 
         Args:
             provider: Provider enum value
-            mode: Mode enum value
+            mode: Mode enum value (provider-specific modes will be converted)
             handler_type: One of 'request', 'reask', 'response'
 
         Returns:
@@ -183,6 +211,7 @@ class ModeRegistry:
             >>> # Or use this convenience method for a single handler:
             >>> handler = registry.get_handler(Provider.ANTHROPIC, Mode.TOOLS, "request")
         """
+        # get_handlers already handles normalization
         handlers = self.get_handlers(provider, mode)
 
         if handler_type == "request":
@@ -204,12 +233,14 @@ class ModeRegistry:
 
         Args:
             provider: Provider enum value
-            mode: Mode enum value
+            mode: Mode enum value (provider-specific modes will be converted)
 
         Returns:
             True if mode is registered (eagerly or lazily)
         """
-        mode = (provider, mode)
+        # Convert provider-specific modes to generic modes
+        normalized_mode = normalize_mode(mode)
+        mode = (provider, normalized_mode)
         return mode in self._handlers or mode in self._lazy_loaders
 
     def get_modes_for_provider(self, provider: Provider) -> list[Mode]:

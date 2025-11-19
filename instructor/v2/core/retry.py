@@ -251,6 +251,30 @@ async def retry_async_v2(
                 if hooks:
                     hooks.emit_completion_response(response)
 
+                # Check if this is a streaming response
+                stream = kwargs.get("stream", False)
+                if stream and response_model is not None:
+                    from instructor.dsl.iterable import IterableBase
+                    from instructor.dsl.partial import PartialBase
+                    import inspect
+
+                    # Handle streaming responses for IterableBase and PartialBase
+                    if inspect.isclass(response_model) and issubclass(
+                        response_model, (IterableBase, PartialBase)
+                    ):
+                        # Map mode for streaming: Anthropic TOOLS mode needs ANTHROPIC_TOOLS
+                        # for extract_json to work correctly (checks for Mode.ANTHROPIC_TOOLS)
+                        streaming_mode = mode
+                        if provider == Provider.ANTHROPIC and mode == Mode.TOOLS:
+                            streaming_mode = Mode.ANTHROPIC_TOOLS
+                        elif provider == Provider.ANTHROPIC and mode == Mode.JSON:
+                            streaming_mode = Mode.ANTHROPIC_JSON
+
+                        # Return the async generator directly for streaming
+                        return response_model.from_streaming_response_async(  # type: ignore
+                            response, mode=streaming_mode
+                        )
+
                 # Parse response using registry
                 try:
                     parsed = handlers.response_parser(

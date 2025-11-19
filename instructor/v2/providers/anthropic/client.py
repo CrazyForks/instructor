@@ -83,10 +83,14 @@ def from_anthropic(
         >>> # Or use JSON mode
         >>> instructor_client = from_anthropic(client, mode=Mode.JSON)
     """
-    from instructor.v2.core.registry import mode_registry
+    from instructor.v2.core.registry import mode_registry, normalize_mode
 
-    # Validate mode is registered
-    if not mode_registry.is_registered(Provider.ANTHROPIC, mode):
+    # Normalize provider-specific modes to generic modes
+    # ANTHROPIC_TOOLS -> TOOLS, ANTHROPIC_JSON -> JSON, ANTHROPIC_PARALLEL_TOOLS -> PARALLEL_TOOLS
+    normalized_mode = normalize_mode(mode)
+
+    # Validate mode is registered (use normalized mode for check)
+    if not mode_registry.is_registered(Provider.ANTHROPIC, normalized_mode):
         from instructor.core.exceptions import ModeError
 
         available_modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
@@ -95,6 +99,9 @@ def from_anthropic(
             provider=Provider.ANTHROPIC.value,
             valid_modes=[m.value for m in available_modes],
         )
+
+    # Use normalized mode for patching
+    mode = normalized_mode
 
     # Validate client type
     valid_client_types = (

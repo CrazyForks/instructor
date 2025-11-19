@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, get_origin
 from weakref import WeakKeyDictionary
 
 from pydantic import BaseModel, Field, TypeAdapter
-from typing_extensions import Annotated
+from typing import Annotated
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from anthropic.types import Message
@@ -119,7 +119,7 @@ def serialize_message_content(content: Any) -> Any:
 
 
 def process_messages_for_anthropic(
-    messages: list[dict[str, Any]]
+    messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Process messages to serialize any Pydantic models in content."""
 
@@ -144,9 +144,7 @@ class AnthropicHandlerBase(ModeHandler):
     mode: Mode
 
     def __init__(self) -> None:
-        self._streaming_models: WeakKeyDictionary[type[Any], None] = (
-            WeakKeyDictionary()
-        )
+        self._streaming_models: WeakKeyDictionary[type[Any], None] = WeakKeyDictionary()
 
     def _register_streaming_from_kwargs(
         self, response_model: type[BaseModel] | None, kwargs: dict[str, Any]
@@ -248,11 +246,11 @@ class AnthropicHandlerBase(ModeHandler):
         return self._finalize_parsed_result(response_model, response, parsed)
 
 
-@register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_TOOLS)
+@register_mode_handler(Provider.ANTHROPIC, Mode.TOOLS)
 class AnthropicToolsHandler(AnthropicHandlerBase):
     """Handler for Anthropic TOOLS mode."""
 
-    mode = Mode.ANTHROPIC_TOOLS
+    mode = Mode.TOOLS
 
     def prepare_request(
         self,
@@ -278,6 +276,13 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
         if response_model is None:
             return None, new_kwargs
 
+        # Prepare response model: wrap simple types in ModelAdapter
+        from instructor.utils.core import prepare_response_model
+
+        # Use prepare_response_model to handle simple types, TypedDict, Iterable, etc.
+        response_model = prepare_response_model(response_model)
+
+        # Detect if this is a parallel tools request (Iterable[Union[...]])
         is_parallel = False
         if get_origin(response_model) is TypingIterable:
             is_parallel = True
@@ -448,11 +453,11 @@ class AnthropicReasoningToolsHandler(AnthropicToolsHandler):
         return super().prepare_request(response_model, kwargs)
 
 
-@register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_PARALLEL_TOOLS)
+@register_mode_handler(Provider.ANTHROPIC, Mode.PARALLEL_TOOLS)
 class AnthropicParallelToolsHandler(AnthropicHandlerBase):
     """Handler for Anthropic parallel tool calling."""
 
-    mode = Mode.ANTHROPIC_PARALLEL_TOOLS
+    mode = Mode.PARALLEL_TOOLS
 
     def prepare_request(
         self,
@@ -464,7 +469,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         new_kwargs = kwargs.copy()
         if new_kwargs.get("stream"):
             raise ConfigurationError(
-                "stream=True is not supported when using ANTHROPIC_PARALLEL_TOOLS mode"
+                "stream=True is not supported when using PARALLEL_TOOLS mode"
             )
 
         system_messages = extract_system_messages(new_kwargs.get("messages", []))
@@ -527,11 +532,11 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         )
 
 
-@register_mode_handler(Provider.ANTHROPIC, Mode.ANTHROPIC_JSON)
+@register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
 class AnthropicJSONHandler(AnthropicHandlerBase):
     """Handler for Anthropic JSON mode."""
 
-    mode = Mode.ANTHROPIC_JSON
+    mode = Mode.JSON
 
     def prepare_request(
         self,
