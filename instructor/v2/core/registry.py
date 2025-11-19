@@ -35,6 +35,10 @@ def normalize_mode(mode: Mode) -> Mode:
         # Keep ANTHROPIC_REASONING_TOOLS as-is since it's deprecated but still used
     }
 
+    # Add ANTHROPIC_STRUCTURED_OUTPUTS if it exists in the Mode enum
+    if hasattr(Mode, "ANTHROPIC_STRUCTURED_OUTPUTS"):
+        mode_mapping[Mode.ANTHROPIC_STRUCTURED_OUTPUTS] = Mode.JSON_SCHEMA
+
     # Convert if mapping exists, otherwise return as-is
     return mode_mapping.get(mode, mode)
 

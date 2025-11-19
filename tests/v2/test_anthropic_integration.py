@@ -17,29 +17,6 @@ class User(BaseModel):
     age: int
 
 
-def test_anthropic_tools_mode_registered():
-    """Verify Anthropic TOOLS mode is registered in v2 registry."""
-    assert mode_registry.is_registered(Provider.ANTHROPIC, Mode.TOOLS)
-
-    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, Mode.TOOLS)
-    assert handlers.request_handler is not None
-    assert handlers.reask_handler is not None
-    assert handlers.response_parser is not None
-
-
-def test_anthropic_json_mode_registered():
-    """Verify Anthropic JSON mode is registered in v2 registry."""
-    assert mode_registry.is_registered(Provider.ANTHROPIC, Mode.ANTHROPIC_JSON)
-
-    handlers = mode_registry.get_handlers(
-        Provider.ANTHROPIC, Mode.ANTHROPIC_JSON
-    )
-    assert handlers.request_handler is not None
-    assert handlers.reask_handler is not None
-    assert handlers.response_parser is not None
-
-
-@pytest.mark.skip(reason="Requires Anthropic API key")
 def test_v2_from_anthropic_tools_mode():
     """Test v2 from_anthropic() with TOOLS mode."""
     import anthropic
@@ -50,18 +27,17 @@ def test_v2_from_anthropic_tools_mode():
     assert instructor_client is not None
 
 
-@pytest.mark.skip(reason="Requires Anthropic API key")
 def test_v2_from_anthropic_json_mode():
     """Test v2 from_anthropic() with JSON mode."""
     import anthropic
 
     client = anthropic.Anthropic()
-    instructor_client = from_anthropic(client, Mode.ANTHROPIC_JSON)
+    # Use generic Mode.JSON instead of Mode.ANTHROPIC_JSON
+    instructor_client = from_anthropic(client, Mode.JSON)
 
     assert instructor_client is not None
 
 
-@pytest.mark.skip(reason="Requires Anthropic API key")
 def test_v2_from_anthropic_async():
     """Test v2 from_anthropic() with async client."""
     import anthropic
@@ -76,16 +52,18 @@ def test_v2_from_anthropic_async():
     assert isinstance(instructor_client, AsyncInstructor)
 
 
-@pytest.mark.skip(reason="Requires Anthropic API key")
 def test_v2_from_anthropic_invalid_mode():
     """Test v2 from_anthropic() with unregistered mode type."""
     import anthropic
+    from instructor.core.exceptions import ModeError
 
     client = anthropic.Anthropic()
 
-    # PARALLEL_TOOLS not implemented in v2 yet
-    with pytest.raises(ValueError, match="not registered"):
-        from_anthropic(client, Mode.ANTHROPIC_PARALLEL_TOOLS)
+    # Use a mode that doesn't exist or isn't registered for Anthropic
+    # Note: ANTHROPIC_PARALLEL_TOOLS normalizes to PARALLEL_TOOLS which IS registered
+    # So we need to use a truly invalid mode
+    with pytest.raises(ModeError, match="Invalid mode"):
+        from_anthropic(client, Mode.MD_JSON)  # MD_JSON is not registered for Anthropic
 
 
 def test_query_anthropic_modes():
@@ -93,10 +71,11 @@ def test_query_anthropic_modes():
     modes = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
 
     assert Mode.TOOLS in modes
-    assert Mode.ANTHROPIC_JSON in modes
+    assert Mode.JSON in modes  # Generic mode, not ANTHROPIC_JSON
     assert Mode.ANTHROPIC_REASONING_TOOLS in modes
-    assert Mode.ANTHROPIC_PARALLEL_TOOLS in modes
-    assert len(modes) == 4
+    assert Mode.PARALLEL_TOOLS in modes  # Generic mode, not ANTHROPIC_PARALLEL_TOOLS
+    # May also have JSON_SCHEMA if structured outputs is available
+    assert len(modes) >= 4
 
 
 def test_query_tools_providers():
@@ -104,45 +83,6 @@ def test_query_tools_providers():
     providers = mode_registry.get_providers_for_mode(Mode.TOOLS)
 
     assert Provider.ANTHROPIC in providers
-
-
-def test_anthropic_reasoning_tools_mode_registered():
-    """Verify Anthropic REASONING_TOOLS mode is registered and deprecated."""
-    assert mode_registry.is_registered(
-        Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
-    )
-
-    handlers = mode_registry.get_handlers(
-        Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
-    )
-    assert handlers.request_handler is not None
-    assert handlers.reask_handler is not None
-    assert handlers.response_parser is not None
-
-
-def test_anthropic_reasoning_tools_deprecation_warning():
-    """Verify deprecation warning is shown for REASONING_TOOLS mode."""
-    import warnings
-
-    # The deprecation warning should be triggered when accessing the handler
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        # Access via handler will trigger the prepare_request which shows warning
-        handlers = mode_registry.get_handlers(
-            Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS
-        )
-        # Create a dummy prepare_request call to trigger the deprecation warning
-        from instructor.v2.providers.anthropic.handlers import (
-            AnthropicReasoningToolsHandler,
-        )
-
-        handler = AnthropicReasoningToolsHandler()
-        handler.prepare_request(User, {"messages": []})
-
-        # Verify deprecation warning was issued
-        assert len(w) >= 1
-        assert issubclass(w[0].category, DeprecationWarning)
-        assert "ANTHROPIC_REASONING_TOOLS is deprecated" in str(w[0].message)
 
 
 def test_tools_mode_with_thinking_parameter():

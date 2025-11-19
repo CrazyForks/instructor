@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import warnings
 from collections.abc import Generator, Iterable as TypingIterable
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable, get_origin
@@ -20,8 +21,6 @@ from instructor import Mode, Provider
 from instructor.core.exceptions import ConfigurationError, IncompleteOutputException
 from instructor.dsl.iterable import IterableBase
 from instructor.dsl.parallel import (
-    AnthropicParallelBase,
-    AnthropicParallelModel,
     ParallelBase,
     get_types_array,
     handle_anthropic_parallel_model,
@@ -116,6 +115,22 @@ def serialize_message_content(content: Any) -> Any:
     if hasattr(content, "model_dump"):
         return content.model_dump()
     return content
+
+
+def _anthropic_supports_output_format() -> bool:
+    """Detect if the installed anthropic SDK supports output_format parameter."""
+
+    try:
+        from anthropic.resources.messages import Messages
+    except (ImportError, AttributeError):
+        return False
+
+    try:
+        signature = inspect.signature(Messages.create)
+    except (ValueError, TypeError):
+        return False
+
+    return "output_format" in signature.parameters
 
 
 def process_messages_for_anthropic(
@@ -276,16 +291,18 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
         if response_model is None:
             return None, new_kwargs
 
-        # Prepare response model: wrap simple types in ModelAdapter
-        from instructor.utils.core import prepare_response_model
-
-        # Use prepare_response_model to handle simple types, TypedDict, Iterable, etc.
-        response_model = prepare_response_model(response_model)
-
         # Detect if this is a parallel tools request (Iterable[Union[...]])
-        is_parallel = False
-        if get_origin(response_model) is TypingIterable:
-            is_parallel = True
+        # Check BEFORE prepare_response_model to avoid wrapping in IterableModel
+        origin = get_origin(response_model)
+        is_parallel = origin is TypingIterable
+
+        # Prepare response model: wrap simple types in ModelAdapter
+        # Skip for parallel tools as they're handled separately
+        if not is_parallel:
+            from instructor.utils.core import prepare_response_model
+
+            # Use prepare_response_model to handle simple types, TypedDict, etc.
+            response_model = prepare_response_model(response_model)
 
         if is_parallel:
             tool_schemas = handle_anthropic_parallel_model(response_model)
@@ -370,7 +387,7 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
     def parse_response(
         self,
         response: Any,
-        response_model: type[BaseModel] | ParallelBase,
+        response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
     ) -> Any:
@@ -385,7 +402,7 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
     def _parse_tool_response(
         self,
         response: Any,
-        response_model: type[BaseModel] | ParallelBase,
+        response_model: type[BaseModel],
         validation_context: dict[str, Any] | None,
         strict: bool | None,
     ) -> Any:
@@ -393,14 +410,6 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
 
         if isinstance(response, Message) and response.stop_reason == "max_tokens":
             raise IncompleteOutputException(last_completion=response)
-
-        if isinstance(response_model, ParallelBase):
-            return response_model.from_response(
-                response,
-                mode=self.mode,
-                validation_context=validation_context,
-                strict=strict,
-            )
 
         origin = get_origin(response_model)
         if origin is TypingIterable:
@@ -463,7 +472,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         self,
         response_model: type[BaseModel] | None,
         kwargs: dict[str, Any],
-    ) -> tuple[ParallelBase | None, dict[str, Any]]:
+    ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         self._register_streaming_from_kwargs(response_model, kwargs)
 
         new_kwargs = kwargs.copy()
@@ -487,12 +496,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         new_kwargs["tools"] = handle_anthropic_parallel_model(response_model)
         new_kwargs["tool_choice"] = {"type": "auto"}
 
-        if isinstance(response_model, AnthropicParallelBase):
-            parallel_model: ParallelBase = response_model
-        else:
-            parallel_model = AnthropicParallelModel(typehint=response_model)
-
-        return parallel_model, new_kwargs
+        return response_model, new_kwargs
 
     def handle_reask(
         self,
@@ -505,7 +509,7 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
     def parse_response(
         self,
         response: Any,
-        response_model: ParallelBase,
+        response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
     ) -> Any:
@@ -520,16 +524,34 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
     def _parse_parallel_response(
         self,
         response: Any,
-        response_model: ParallelBase,
+        response_model: type[BaseModel],
         validation_context: dict[str, Any] | None,
         strict: bool | None,
-    ) -> Any:
-        return response_model.from_response(
-            response,
-            mode=self.mode,
-            validation_context=validation_context,
-            strict=strict,
-        )
+    ) -> Generator[BaseModel, None, None]:
+        """Parse parallel tool response directly without using AnthropicParallelBase."""
+        if not response or not hasattr(response, "content"):
+            return
+
+        # Extract model types from response_model (Iterable[Union[Model1, Model2, ...]])
+        the_types = get_types_array(response_model)  # type: ignore[arg-type]
+        type_registry = {
+            model.__name__ if hasattr(model, "__name__") else str(model): model
+            for model in the_types
+        }
+
+        # Parse tool_use blocks from response
+        for content in response.content:
+            if getattr(content, "type", None) == "tool_use":
+                name = content.name
+                arguments = content.input
+                if name in type_registry:
+                    model_class = type_registry[name]
+                    json_str = json.dumps(arguments)
+                    yield model_class.model_validate_json(
+                        json_str,
+                        context=validation_context,
+                        strict=strict,
+                    )
 
 
 @register_mode_handler(Provider.ANTHROPIC, Mode.JSON)
@@ -655,9 +677,177 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
         )
 
 
+@register_mode_handler(Provider.ANTHROPIC, Mode.JSON_SCHEMA)
+class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
+    """Handler for Anthropic structured outputs mode.
+
+    Uses Claude's native structured output enforcement via the output_format parameter.
+    Requires Anthropic SDK >=0.71.0 and the structured-outputs-2025-11-13 beta.
+    """
+
+    mode = Mode.JSON_SCHEMA
+
+    def prepare_request(
+        self,
+        response_model: type[BaseModel] | None,
+        kwargs: dict[str, Any],
+    ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
+        self._register_streaming_from_kwargs(response_model, kwargs)
+
+        if response_model is None:
+            from instructor.core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "Mode.JSON_SCHEMA (Anthropic structured outputs) requires a `response_model`."
+            )
+
+        if not _anthropic_supports_output_format():
+            warnings.warn(
+                "Anthropic client does not support `output_format`; falling back to JSON mode instructions.",
+                UserWarning,
+                stacklevel=2,
+            )
+            json_handler = AnthropicJSONHandler()
+            return json_handler.prepare_request(response_model, kwargs)
+
+        new_kwargs = kwargs.copy()
+        system_messages = extract_system_messages(new_kwargs.get("messages", []))
+        if system_messages:
+            new_kwargs["system"] = combine_system_messages(
+                new_kwargs.get("system"), system_messages
+            )
+        new_kwargs["messages"] = [
+            m for m in new_kwargs.get("messages", []) if m["role"] != "system"
+        ]
+        if "messages" in new_kwargs:
+            new_kwargs["messages"] = process_messages_for_anthropic(
+                new_kwargs["messages"]
+            )
+
+        import anthropic
+
+        transform_schema = getattr(anthropic, "transform_schema", None)
+        if transform_schema is None:
+            warnings.warn(
+                "Anthropic structured outputs works best with anthropic>=0.71.0. "
+                "Falling back to response_model.model_json_schema().",
+                UserWarning,
+                stacklevel=2,
+            )
+
+            def transform_schema(model: type[BaseModel]) -> dict[str, Any]:
+                return model.model_json_schema()
+
+        new_kwargs["output_format"] = {
+            "type": "json_schema",
+            "schema": transform_schema(response_model),
+        }
+
+        required_beta = "structured-outputs-2025-11-13"
+        betas = new_kwargs.get("betas")
+        if betas is None:
+            new_kwargs["betas"] = [required_beta]
+        else:
+            if isinstance(betas, str):
+                betas = [betas]
+            elif not isinstance(betas, list):
+                betas = list(betas)
+            if required_beta not in betas:
+                betas.append(required_beta)
+            new_kwargs["betas"] = betas
+
+        # Ensure legacy tool kwargs are cleared
+        new_kwargs.pop("tools", None)
+        new_kwargs.pop("tool_choice", None)
+
+        return response_model, new_kwargs
+
+    def handle_reask(
+        self,
+        kwargs: dict[str, Any],
+        response: Message,
+        exception: Exception,
+    ) -> dict[str, Any]:
+        # Use same reask logic as JSON mode
+        kwargs = kwargs.copy()
+        text_blocks = [c for c in response.content if c.type == "text"]
+        if not text_blocks:
+            text_content = "No text content found in response"
+        else:
+            text_content = text_blocks[-1].text
+        reask_msg = {
+            "role": "user",
+            "content": (
+                "Validation Errors found:\n"
+                f"{exception}\nRecall the function correctly, fix the errors found in the following attempt:\n{text_content}"
+            ),
+        }
+        kwargs["messages"].append(reask_msg)
+        return kwargs
+
+    def parse_response(
+        self,
+        response: Any,
+        response_model: type[BaseModel],
+        validation_context: dict[str, Any] | None = None,
+        strict: bool | None = None,
+    ) -> Any:
+        return self._parse_with_callback(
+            response,
+            response_model,
+            validation_context,
+            strict,
+            self._parse_structured_output_response,
+        )
+
+    def _parse_structured_output_response(
+        self,
+        response: Any,
+        response_model: type[BaseModel],
+        validation_context: dict[str, Any] | None,
+        strict: bool | None,
+    ) -> BaseModel:
+        from anthropic.types import Message
+        from instructor.core.exceptions import ResponseParsingError
+
+        if not isinstance(response, Message):
+            raise ResponseParsingError(
+                "Response must be an Anthropic Message",
+                mode="JSON_SCHEMA",
+                raw_response=response,
+            )
+        if response.stop_reason == "max_tokens":
+            raise IncompleteOutputException(last_completion=response)
+
+        # Structured outputs returns content directly in text blocks
+        text_blocks = [c for c in response.content if c.type == "text"]
+        if not text_blocks:
+            raise ResponseParsingError(
+                "No text content found in structured output response",
+                mode="JSON_SCHEMA",
+                raw_response=response,
+            )
+
+        # Get the text content (should be valid JSON per schema)
+        text_content = text_blocks[-1].text
+
+        # Parse and validate
+        if strict:
+            return response_model.model_validate_json(
+                text_content,
+                context=validation_context,
+                strict=strict,
+            )
+        return response_model.model_validate_json(
+            text_content,
+            context=validation_context,
+        )
+
+
 __all__ = [
     "AnthropicToolsHandler",
     "AnthropicReasoningToolsHandler",
     "AnthropicParallelToolsHandler",
     "AnthropicJSONHandler",
+    "AnthropicStructuredOutputsHandler",
 ]
