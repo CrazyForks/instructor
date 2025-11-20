@@ -13,7 +13,7 @@ from instructor import Mode, Provider
 from instructor.v2.core.protocols import ReaskHandler, RequestHandler, ResponseParser
 
 
-def normalize_mode(mode: Mode) -> Mode:
+def normalize_mode(_provider: Provider, mode: Mode) -> Mode:
     """Convert provider-specific modes to generic modes.
 
     This allows backward compatibility - users can still use provider-specific
@@ -21,6 +21,7 @@ def normalize_mode(mode: Mode) -> Mode:
     like Mode.TOOLS for registry lookup.
 
     Args:
+        provider: Provider enum value (for context, though mode mapping is provider-agnostic)
         mode: Mode enum value (may be provider-specific)
 
     Returns:
@@ -165,7 +166,7 @@ class ModeRegistry:
             >>> handlers.response_parser(...)
         """
         # Convert provider-specific modes to generic modes
-        normalized_mode = normalize_mode(mode)
+        normalized_mode = normalize_mode(provider, mode)
         mode = (provider, normalized_mode)
 
         # Check if already loaded
@@ -247,7 +248,7 @@ class ModeRegistry:
             True if mode is registered (eagerly or lazily)
         """
         # Convert provider-specific modes to generic modes
-        normalized_mode = normalize_mode(mode)
+        normalized_mode = normalize_mode(provider, mode)
         mode = (provider, normalized_mode)
         return mode in self._handlers or mode in self._lazy_loaders
 
@@ -295,6 +296,41 @@ class ModeRegistry:
         """
         all_modes = set(self._handlers.keys()) | set(self._lazy_loaders.keys())
         return sorted(all_modes, key=lambda m: (m[0].value, m[1].value))
+
+    def get_handler_class(self, provider: Provider, mode: Mode) -> type | None:
+        """Get the handler class for a mode.
+
+        This method looks up the handler class that was registered for the given
+        provider and mode. It's useful for testing and introspection.
+
+        Args:
+            provider: Provider enum value
+            mode: Mode enum value (provider-specific modes will be converted)
+
+        Returns:
+            Handler class type if found, None otherwise
+        """
+        # Convert provider-specific modes to generic modes
+        normalized_mode = normalize_mode(provider, mode)
+        mode_key = (provider, normalized_mode)
+
+        # Check if handlers are registered
+        if mode_key not in self._handlers and mode_key not in self._lazy_loaders:
+            return None
+
+        # Try to get the handler class from the decorator registry
+        # The decorator stores the handler class, but we need to find it
+        # by looking at what was registered
+        handlers = self.get_handlers(provider, mode)
+
+        # The handlers are bound methods, so we need to get the class
+        # We can inspect the handler's __self__ to get the instance, then __class__
+        if hasattr(handlers.request_handler, "__self__"):
+            return handlers.request_handler.__self__.__class__
+
+        # If it's a function, we can't easily get the class
+        # Return None to indicate we couldn't determine it
+        return None
 
 
 # Global registry instance

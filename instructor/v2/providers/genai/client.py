@@ -5,11 +5,14 @@ from typing import Any, Literal, overload
 from google.genai import Client
 
 from ....core.client import AsyncInstructor, Instructor
-from ....core.exceptions import ClientError, ModeError
+from ....core.exceptions import ClientError
 from ....mode import Mode
 from ....utils.providers import Provider
 from ...core.patch import patch_v2
-from ...core.registry import normalize_mode
+from ...core.registry import mode_registry, normalize_mode
+
+# Ensure handlers are registered (decorators auto-register on import)
+from . import handlers  # noqa: F401
 
 VALID_MODES = {
     Mode.TOOLS,
@@ -46,21 +49,22 @@ def from_genai(
     mode: Mode = Mode.TOOLS,
     *,
     use_async: bool = False,
+    model: str | None = None,
     **kwargs: Any,
 ) -> Instructor | AsyncInstructor:
     """
     Create a v2 Instructor client from a google.genai.Client instance.
-    
+
     Supports generic modes (TOOLS, JSON) and backwards-compatible provider-specific modes
     (GENAI_TOOLS, GENAI_JSON, GENAI_STRUCTURED_OUTPUTS).
-    """
 
-    if mode not in VALID_MODES:
-        raise ModeError(
-            mode=str(mode),
-            provider="GenAI",
-            valid_modes=[str(m) for m in VALID_MODES],
-        )
+    Args:
+        client: google.genai.Client instance
+        mode: Mode to use (defaults to Mode.TOOLS)
+        use_async: Whether to use async client
+        model: Default model name to inject into requests if not provided
+        **kwargs: Additional kwargs passed to Instructor constructor
+    """
 
     if not isinstance(client, Client):
         raise ClientError(
@@ -70,17 +74,40 @@ def from_genai(
     # Normalize mode for handler lookup (preserve original for client)
     normalized_mode = normalize_mode(Provider.GENAI, mode)
 
+    # Validate mode is registered (use normalized mode for check)
+    if not mode_registry.is_registered(Provider.GENAI, normalized_mode):
+        from instructor.core.exceptions import ModeError
+
+        available_modes = mode_registry.get_modes_for_provider(Provider.GENAI)
+        raise ModeError(
+            mode=mode.value,
+            provider=Provider.GENAI.value,
+            valid_modes=[m.value for m in available_modes],
+        )
+
     if use_async:
 
-        async def async_wrapper(*args: Any, **call_kwargs: Any) -> Any:
-            if call_kwargs.pop("stream", False):
-                return await client.aio.models.generate_content_stream(*args, **call_kwargs)  # type: ignore[attr-defined]
-            return await client.aio.models.generate_content(*args, **call_kwargs)  # type: ignore[attr-defined]
+        async def async_wrapper(*_args: Any, **call_kwargs: Any) -> Any:
+            # Extract model and stream from kwargs
+            # default_model will be injected by patch_v2 if not present
+            model_param = call_kwargs.pop("model", None) or model
+            stream = call_kwargs.pop("stream", False)
+
+            # contents should be in call_kwargs from handler
+            if stream:
+                return await client.aio.models.generate_content_stream(
+                    model=model_param, **call_kwargs
+                )  # type: ignore[attr-defined]
+
+            return await client.aio.models.generate_content(
+                model=model_param, **call_kwargs
+            )  # type: ignore[attr-defined]
 
         patched = patch_v2(
-            create=async_wrapper,
+            func=async_wrapper,
             provider=Provider.GENAI,
             mode=normalized_mode,
+            default_model=model,
         )
         return AsyncInstructor(
             client=client,
@@ -90,15 +117,25 @@ def from_genai(
             **kwargs,
         )
 
-    def sync_wrapper(*args: Any, **call_kwargs: Any) -> Any:
-        if call_kwargs.pop("stream", False):
-            return client.models.generate_content_stream(*args, **call_kwargs)
-        return client.models.generate_content(*args, **call_kwargs)
+    def sync_wrapper(*_args: Any, **call_kwargs: Any) -> Any:
+        # Extract model and stream from kwargs
+        # default_model will be injected by patch_v2 if not present
+        model_param = call_kwargs.pop("model", None) or model
+        stream = call_kwargs.pop("stream", False)
+
+        # contents should be in call_kwargs from handler
+        if stream:
+            return client.models.generate_content_stream(
+                model=model_param, **call_kwargs
+            )
+
+        return client.models.generate_content(model=model_param, **call_kwargs)
 
     patched = patch_v2(
-        create=sync_wrapper,
+        func=sync_wrapper,
         provider=Provider.GENAI,
         mode=normalized_mode,
+        default_model=model,
     )
     return Instructor(
         client=client,
@@ -107,4 +144,3 @@ def from_genai(
         mode=mode,  # Keep original mode for client
         **kwargs,
     )
-

@@ -1,8 +1,10 @@
 """
-Comprehensive parametrized tests for all Anthropic modes.
+Comprehensive parametrized tests for all provider modes.
 
-Tests all registered modes with actual API calls to ensure complete coverage.
+Tests all registered modes for each provider with actual API calls to ensure complete coverage.
 """
+
+from __future__ import annotations
 
 import pytest
 from collections.abc import Iterable
@@ -33,43 +35,69 @@ class GoogleSearch(BaseModel):
     query: str
 
 
-# Get all registered Anthropic modes dynamically
-ANTHROPIC_MODES = mode_registry.get_modes_for_provider(Provider.ANTHROPIC)
+# Provider-specific configurations
+PROVIDER_CONFIGS = {
+    Provider.ANTHROPIC: {
+        "provider_string": "anthropic/claude-3-5-haiku-latest",
+        "modes": [
+            Mode.TOOLS,
+            Mode.JSON_SCHEMA,
+            Mode.PARALLEL_TOOLS,
+            Mode.ANTHROPIC_REASONING_TOOLS,
+        ],
+        "basic_modes": [Mode.TOOLS, Mode.JSON_SCHEMA],
+        "async_modes": [Mode.TOOLS, Mode.JSON_SCHEMA],
+    },
+    Provider.GENAI: {
+        "provider_string": "google/gemini-2.0-flash",
+        "modes": [Mode.TOOLS, Mode.JSON],
+        "basic_modes": [Mode.TOOLS, Mode.JSON],
+        "async_modes": [Mode.TOOLS, Mode.JSON],
+    },
+}
 
 
 @pytest.mark.parametrize(
-    "mode",
+    "provider,mode",
     [
-        Mode.TOOLS,
-        Mode.JSON_SCHEMA,
-        Mode.PARALLEL_TOOLS,
-        Mode.ANTHROPIC_REASONING_TOOLS,
+        (Provider.ANTHROPIC, Mode.TOOLS),
+        (Provider.ANTHROPIC, Mode.JSON_SCHEMA),
+        (Provider.ANTHROPIC, Mode.PARALLEL_TOOLS),
+        (Provider.ANTHROPIC, Mode.ANTHROPIC_REASONING_TOOLS),
+        (Provider.GENAI, Mode.TOOLS),
+        (Provider.GENAI, Mode.JSON),
     ],
 )
-def test_mode_is_registered(mode):
+def test_mode_is_registered(provider: Provider, mode: Mode):
     """Verify each mode is registered in the v2 registry."""
-    assert mode_registry.is_registered(Provider.ANTHROPIC, mode)
+    assert mode_registry.is_registered(provider, mode)
 
-    handlers = mode_registry.get_handlers(Provider.ANTHROPIC, mode)
+    handlers = mode_registry.get_handlers(provider, mode)
     assert handlers.request_handler is not None
     assert handlers.reask_handler is not None
     assert handlers.response_parser is not None
 
 
 @pytest.mark.parametrize(
-    "mode",
+    "provider,mode",
     [
-        Mode.TOOLS,
-        Mode.JSON_SCHEMA,
+        (Provider.ANTHROPIC, Mode.TOOLS),
+        (Provider.ANTHROPIC, Mode.JSON_SCHEMA),
+        (Provider.GENAI, Mode.TOOLS),
+        (Provider.GENAI, Mode.JSON),
     ],
 )
 @pytest.mark.requires_api_key
-def test_mode_basic_extraction(mode):
+def test_mode_basic_extraction(provider: Provider, mode: Mode):
     """Test basic extraction with each mode."""
+    config = PROVIDER_CONFIGS[provider]
+
+    # All providers now use from_provider()
     client = instructor.from_provider(
-        "anthropic/claude-3-5-haiku-latest",
+        config["provider_string"],
         mode=mode,
     )
+
     response = client.chat.completions.create(
         response_model=Answer,
         messages=[
@@ -85,39 +113,46 @@ def test_mode_basic_extraction(mode):
     assert response.answer == 4.0
 
 
+@pytest.mark.parametrize(
+    "provider,mode",
+    [
+        (Provider.ANTHROPIC, Mode.TOOLS),
+        (Provider.ANTHROPIC, Mode.JSON_SCHEMA),
+        (Provider.GENAI, Mode.TOOLS),
+        (Provider.GENAI, Mode.JSON),
+    ],
+)
+@pytest.mark.asyncio
 @pytest.mark.requires_api_key
-def test_mode_json_schema_extraction():
-    """Test JSON_SCHEMA mode extraction."""
-    try:
-        from anthropic import transform_schema  # noqa: F401
-    except ImportError:
-        pytest.skip("anthropic >= 0.71.0 required for structured outputs")
+async def test_mode_async_extraction(provider: Provider, mode: Mode):
+    """Test async extraction with each mode."""
+    config = PROVIDER_CONFIGS[provider]
 
-    if not mode_registry.is_registered(Provider.ANTHROPIC, Mode.JSON_SCHEMA):
-        pytest.skip("JSON_SCHEMA mode not available")
-
+    # All providers now use from_provider()
     client = instructor.from_provider(
-        "anthropic/claude-3-5-haiku-latest",
-        mode=Mode.JSON_SCHEMA,
+        config["provider_string"],
+        mode=mode,
+        async_client=True,
     )
-    response = client.chat.completions.create(
+
+    response = await client.chat.completions.create(
         response_model=Answer,
         messages=[
             {
                 "role": "user",
-                "content": "What is 3 + 3? Reply with a number.",
+                "content": "What is 4 + 4? Reply with a number.",
             },
         ],
         max_tokens=1000,
     )
 
     assert isinstance(response, Answer)
-    assert response.answer == 6.0
+    assert response.answer == 8.0
 
 
 @pytest.mark.requires_api_key
-def test_mode_parallel_tools_extraction():
-    """Test PARALLEL_TOOLS mode extraction."""
+def test_anthropic_parallel_tools_extraction():
+    """Test PARALLEL_TOOLS mode extraction (Anthropic-specific)."""
     client = instructor.from_provider(
         "anthropic/claude-3-5-haiku-latest",
         mode=Mode.PARALLEL_TOOLS,
@@ -146,43 +181,12 @@ def test_mode_parallel_tools_extraction():
     "mode",
     [
         Mode.TOOLS,
-        Mode.JSON_SCHEMA,
-    ],
-)
-@pytest.mark.asyncio
-@pytest.mark.requires_api_key
-async def test_mode_async_extraction(mode):
-    """Test async extraction with each mode."""
-    client = instructor.from_provider(
-        "anthropic/claude-3-5-haiku-latest",
-        mode=mode,
-        async_client=True,
-    )
-    response = await client.chat.completions.create(
-        response_model=Answer,
-        messages=[
-            {
-                "role": "user",
-                "content": "What is 4 + 4? Reply with a number.",
-            },
-        ],
-        max_tokens=1000,
-    )
-
-    assert isinstance(response, Answer)
-    assert response.answer == 8.0
-
-
-@pytest.mark.parametrize(
-    "mode",
-    [
-        Mode.TOOLS,
         Mode.ANTHROPIC_REASONING_TOOLS,
     ],
 )
 @pytest.mark.requires_api_key
-def test_mode_tools_with_thinking(mode):
-    """Test tools modes with thinking parameter."""
+def test_anthropic_tools_with_thinking(mode: Mode):
+    """Test tools modes with thinking parameter (Anthropic-specific)."""
     # Note: Thinking requires Claude 3.7 Sonnet or later
     client = instructor.from_provider(
         "anthropic/claude-3-7-sonnet-20250219",
@@ -206,7 +210,7 @@ def test_mode_tools_with_thinking(mode):
 
 
 @pytest.mark.requires_api_key
-def test_mode_reasoning_tools_deprecation():
+def test_anthropic_reasoning_tools_deprecation():
     """Test that ANTHROPIC_REASONING_TOOLS shows deprecation warning."""
     import warnings
 
@@ -254,17 +258,13 @@ def test_mode_reasoning_tools_deprecation():
         assert response.answer == 12.0
 
 
+@pytest.mark.parametrize("provider", [Provider.ANTHROPIC, Provider.GENAI])
 @pytest.mark.requires_api_key
-def test_all_modes_covered():
-    """Verify we're testing all registered modes."""
-    tested_modes = {
-        Mode.TOOLS,
-        Mode.JSON_SCHEMA,
-        Mode.PARALLEL_TOOLS,
-        Mode.ANTHROPIC_REASONING_TOOLS,
-    }
-
-    registered_modes = set(mode_registry.get_modes_for_provider(Provider.ANTHROPIC))
+def test_all_modes_covered(provider: Provider):
+    """Verify we're testing all registered modes for each provider."""
+    config = PROVIDER_CONFIGS[provider]
+    tested_modes = set(config["modes"])
+    registered_modes = set(mode_registry.get_modes_for_provider(provider))
 
     # All registered modes should be tested
     assert tested_modes.issubset(registered_modes), (

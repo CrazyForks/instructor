@@ -87,7 +87,7 @@ def from_anthropic(
 
     # Normalize provider-specific modes to generic modes
     # ANTHROPIC_TOOLS -> TOOLS, ANTHROPIC_JSON -> JSON, ANTHROPIC_PARALLEL_TOOLS -> PARALLEL_TOOLS
-    normalized_mode = normalize_mode(mode)
+    normalized_mode = normalize_mode(Provider.ANTHROPIC, mode)
 
     # Validate mode is registered (use normalized mode for check)
     if not mode_registry.is_registered(Provider.ANTHROPIC, normalized_mode):

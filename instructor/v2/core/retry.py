@@ -113,6 +113,8 @@ def retry_sync_v2(
                         response_model=response_model,
                         validation_context=context,
                         strict=strict,
+                        stream=False,
+                        is_async=False,
                     )
                     logger.debug(
                         f"Successfully parsed response on attempt "
@@ -282,6 +284,8 @@ async def retry_async_v2(
                         response_model=response_model,
                         validation_context=context,
                         strict=strict,
+                        stream=stream,
+                        is_async=True,
                     )
                     logger.debug(
                         f"Successfully parsed response on attempt "

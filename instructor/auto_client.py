@@ -397,7 +397,7 @@ def from_provider(
     elif provider == "google":
         try:
             import google.genai as genai
-            from instructor import from_genai  # type: ignore[attr-defined]
+            from instructor.v2 import from_genai
             import os
 
             # Remove vertexai from kwargs if present to avoid passing it twice
@@ -423,21 +423,16 @@ def from_provider(
                 api_key=api_key,
                 **client_kwargs,
             )  # type: ignore
-            if async_client:
-                result = from_genai(
-                    client,
-                    use_async=True,
-                    model=model_name,
-                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
-                    **kwargs,
-                )  # type: ignore
-            else:
-                result = from_genai(
-                    client,
-                    model=model_name,
-                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
-                    **kwargs,
-                )  # type: ignore
+            # Use v2 from_genai with generic Mode.TOOLS as default
+            # Extract model from kwargs if present, otherwise use model_name
+            model_param = kwargs.pop("model", model_name)
+            result = from_genai(
+                client,
+                mode=mode if mode else instructor.Mode.TOOLS,
+                use_async=async_client,
+                model=model_param,
+                **kwargs,
+            )
             logger.info(
                 "Client initialized",
                 extra={**provider_info, "status": "success"},

@@ -11,14 +11,18 @@ from ....dsl.simple_type import AdapterBase
 from ....processing.multimodal import extract_genai_multimodal_content
 from ....providers.gemini import utils as gemini_utils
 from ....utils.core import prepare_response_model
+from ...core.decorators import register_mode_handler
 from ...core.handler import ModeHandler
-from ...core.registry import register_mode_handler
 from ....mode import Mode
 from ....utils.providers import Provider
 
 
 class GenAIHandlerBase(ModeHandler):
     """Common utilities shared across GenAI mode handlers."""
+
+    def __init__(self, mode: Mode | None = None) -> None:
+        """Initialize handler with optional mode."""
+        self.mode = mode
 
     def _clone_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return kwargs.copy()
@@ -56,16 +60,29 @@ class GenAIHandlerBase(ModeHandler):
         autodetect_images: bool,
     ) -> dict[str, Any]:
         contents = gemini_utils.convert_to_genai_messages(kwargs.get("messages", []))
-        kwargs["contents"] = extract_genai_multimodal_content(contents, autodetect_images)
+        kwargs["contents"] = extract_genai_multimodal_content(
+            contents, autodetect_images
+        )
         kwargs.pop("messages", None)
         return kwargs
 
     def _cleanup_provider_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        # Keep 'model' as it's required by GenAI API
+        # Remove other OpenAI-specific params that should be in config
         for key in (
             "response_model",
             "generation_config",
             "safety_settings",
             "thinking_config",
+            "max_tokens",
+            "temperature",
+            "top_p",
+            "n",
+            "stop",
+            "seed",
+            "presence_penalty",
+            "frequency_penalty",
+            "kwargs",  # Remove any nested kwargs key
         ):
             kwargs.pop(key, None)
         return kwargs
@@ -88,7 +105,7 @@ class GenAIHandlerBase(ModeHandler):
     def prepare_request(
         self,
         response_model: type[BaseModel] | None,
-        **kwargs: Any,
+        kwargs: dict[str, Any],
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         raise NotImplementedError
 
@@ -151,9 +168,9 @@ class GenAIHandlerBase(ModeHandler):
         self,
         *,
         kwargs: dict[str, Any],
-        response: Any,
-        exception: Exception,
-        failed_attempts: list[Any] | None = None,
+        response: Any,  # noqa: ARG002
+        exception: Exception,  # noqa: ARG002
+        failed_attempts: list[Any] | None = None,  # noqa: ARG002  # noqa: ARG002
     ) -> dict[str, Any]:
         return kwargs.copy()
 
@@ -165,7 +182,7 @@ class GenAIToolsHandler(GenAIHandlerBase):
     def prepare_request(
         self,
         response_model: type[BaseModel] | None,
-        **kwargs: Any,
+        kwargs: dict[str, Any],
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         from google.genai import types
 
@@ -190,6 +207,22 @@ class GenAIToolsHandler(GenAIHandlerBase):
         )
 
         system_instruction = self._extract_system_instruction(new_kwargs)
+
+        # Move OpenAI-style params to generation_config for conversion
+        generation_config_dict = new_kwargs.pop("generation_config", {})
+        for key in (
+            "max_tokens",
+            "temperature",
+            "top_p",
+            "n",
+            "stop",
+            "seed",
+            "presence_penalty",
+            "frequency_penalty",
+        ):
+            if key in new_kwargs:
+                generation_config_dict[key] = new_kwargs.pop(key)
+
         base_config = {
             "system_instruction": system_instruction,
             "tools": [types.Tool(function_declarations=[function_decl])],
@@ -202,7 +235,10 @@ class GenAIToolsHandler(GenAIHandlerBase):
                 ),
             ),
         }
+        # Temporarily put generation_config back for update_genai_kwargs to process
+        new_kwargs["generation_config"] = generation_config_dict
         generation_config = gemini_utils.update_genai_kwargs(new_kwargs, base_config)
+        new_kwargs.pop("generation_config", None)  # Remove it after processing
         new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
         new_kwargs = self._convert_messages_to_contents(new_kwargs, autodetect_images)
         new_kwargs = self._cleanup_provider_kwargs(new_kwargs)
@@ -214,7 +250,7 @@ class GenAIToolsHandler(GenAIHandlerBase):
         kwargs: dict[str, Any],
         response: Any,
         exception: Exception,
-        failed_attempts: list[Any] | None = None,
+        failed_attempts: list[Any] | None = None,  # noqa: ARG002
     ) -> dict[str, Any]:
         return gemini_utils.reask_genai_tools(
             kwargs.copy(),
@@ -230,7 +266,7 @@ class GenAIStructuredOutputsHandler(GenAIHandlerBase):
     def prepare_request(
         self,
         response_model: type[BaseModel] | None,
-        **kwargs: Any,
+        kwargs: dict[str, Any],
     ) -> tuple[type[BaseModel] | None, dict[str, Any]]:
         from google.genai import types
 
@@ -251,12 +287,31 @@ class GenAIStructuredOutputsHandler(GenAIHandlerBase):
         )
 
         system_instruction = self._extract_system_instruction(new_kwargs)
+
+        # Move OpenAI-style params to generation_config for conversion
+        generation_config_dict = new_kwargs.pop("generation_config", {})
+        for key in (
+            "max_tokens",
+            "temperature",
+            "top_p",
+            "n",
+            "stop",
+            "seed",
+            "presence_penalty",
+            "frequency_penalty",
+        ):
+            if key in new_kwargs:
+                generation_config_dict[key] = new_kwargs.pop(key)
+
         base_config = {
             "system_instruction": system_instruction,
             "response_mime_type": "application/json",
             "response_schema": prepared_model,
         }
+        # Temporarily put generation_config back for update_genai_kwargs to process
+        new_kwargs["generation_config"] = generation_config_dict
         generation_config = gemini_utils.update_genai_kwargs(new_kwargs, base_config)
+        new_kwargs.pop("generation_config", None)  # Remove it after processing
         new_kwargs["config"] = types.GenerateContentConfig(**generation_config)
         new_kwargs = self._convert_messages_to_contents(new_kwargs, autodetect_images)
         new_kwargs = self._cleanup_provider_kwargs(new_kwargs)
@@ -268,11 +323,10 @@ class GenAIStructuredOutputsHandler(GenAIHandlerBase):
         kwargs: dict[str, Any],
         response: Any,
         exception: Exception,
-        failed_attempts: list[Any] | None = None,
+        failed_attempts: list[Any] | None = None,  # noqa: ARG002
     ) -> dict[str, Any]:
         return gemini_utils.reask_genai_structured_outputs(
             kwargs.copy(),
             response,
             exception,
         )
-

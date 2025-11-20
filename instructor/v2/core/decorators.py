@@ -35,8 +35,15 @@ def register_mode_handler(
 
     def decorator(handler_class: type) -> type:
         """Register the handler class."""
-        # Instantiate the handler
-        handler = handler_class()
+        # Instantiate the handler, passing mode if __init__ accepts it
+        try:
+            handler = handler_class(mode=mode)
+        except TypeError:
+            # Handler doesn't accept mode parameter, use default instantiation
+            handler = handler_class()
+            # Set mode attribute if handler has it
+            if hasattr(handler, "mode"):
+                handler.mode = mode
 
         # Register with the registry
         mode_registry.register(

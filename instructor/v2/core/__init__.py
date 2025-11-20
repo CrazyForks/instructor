@@ -2,7 +2,12 @@
 
 from instructor import Mode, Provider
 from instructor.v2.core.protocols import ReaskHandler, RequestHandler, ResponseParser
-from instructor.v2.core.registry import ModeHandlers, ModeRegistry, mode_registry
+from instructor.v2.core.registry import (
+    ModeHandlers,
+    ModeRegistry,
+    mode_registry,
+    normalize_mode,
+)
 
 __all__ = [
     "Provider",
@@ -13,4 +18,5 @@ __all__ = [
     "RequestHandler",
     "ReaskHandler",
     "ResponseParser",
+    "normalize_mode",
 ]

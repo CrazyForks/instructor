@@ -19,13 +19,23 @@ Benefits:
 from instructor import Mode, Provider
 from instructor.v2.core.handler import ModeHandler
 from instructor.v2.core.protocols import ReaskHandler, RequestHandler, ResponseParser
-from instructor.v2.core.registry import ModeHandlers, ModeRegistry, mode_registry
+from instructor.v2.core.registry import (
+    ModeHandlers,
+    ModeRegistry,
+    mode_registry,
+    normalize_mode,
+)
 
 # Import providers (will auto-register modes)
 try:
     from instructor.v2.providers.anthropic import from_anthropic
 except ImportError:
     from_anthropic = None  # type: ignore
+
+try:
+    from instructor.v2.providers.genai import from_genai
+except ImportError:
+    from_genai = None  # type: ignore
 
 __all__ = [
     # Core types
@@ -35,6 +45,7 @@ __all__ = [
     "mode_registry",
     "ModeRegistry",
     "ModeHandlers",
+    "normalize_mode",
     # Handler base class
     "ModeHandler",
     # Protocols
@@ -43,4 +54,5 @@ __all__ = [
     "ResponseParser",
     # Providers
     "from_anthropic",
+    "from_genai",
 ]

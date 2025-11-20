@@ -390,6 +390,8 @@ class AnthropicToolsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
+        stream: bool = False,  # noqa: ARG002
+        is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
             response,
@@ -512,6 +514,8 @@ class AnthropicParallelToolsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
+        stream: bool = False,  # noqa: ARG002
+        is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
             response,
@@ -627,6 +631,8 @@ class AnthropicJSONHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
+        stream: bool = False,  # noqa: ARG002
+        is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
             response,
@@ -791,6 +797,8 @@ class AnthropicStructuredOutputsHandler(AnthropicHandlerBase):
         response_model: type[BaseModel],
         validation_context: dict[str, Any] | None = None,
         strict: bool | None = None,
+        stream: bool = False,  # noqa: ARG002
+        is_async: bool = False,  # noqa: ARG002
     ) -> Any:
         return self._parse_with_callback(
             response,
