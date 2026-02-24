@@ -43,19 +43,6 @@ markers = [
     "unit: marks tests as unit tests (fast, no external dependencies)",
     "integration: marks tests as integration tests (may require API keys)",
     "llm: marks tests that make LLM API calls",
-    "provider: marks tests that use provider-config parametrization",
-    "requires_api_key: marks tests that require optional API keys/dependencies",
-    "docs: marks tests that validate documentation artifacts",
-    "openai: mark test as requiring OpenAI provider",
-    "anthropic: mark test as requiring Anthropic provider",
-    "google: mark test as requiring Google provider",
-    "cohere: mark test as requiring Cohere provider",
-    "xai: mark test as requiring xAI provider",
-    "mistral: mark test as requiring Mistral provider",
-    "cerebras: mark test as requiring Cerebras provider",
-    "fireworks: mark test as requiring Fireworks provider",
-    "writer: mark test as requiring Writer provider",
-    "perplexity: mark test as requiring Perplexity provider",
 ]
 
 [project.optional-dependencies]
